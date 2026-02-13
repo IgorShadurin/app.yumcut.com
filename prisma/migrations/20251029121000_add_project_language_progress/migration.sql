@@ -1,0 +1,12 @@
+CREATE TABLE `ProjectLanguageProgress` (
+  `projectId` CHAR(36) NOT NULL,
+  `languageCode` VARCHAR(16) NOT NULL,
+  `transcriptionDone` BOOLEAN NOT NULL DEFAULT FALSE,
+  `captionsDone` BOOLEAN NOT NULL DEFAULT FALSE,
+  `videoPartsDone` BOOLEAN NOT NULL DEFAULT FALSE,
+  `finalVideoDone` BOOLEAN NOT NULL DEFAULT FALSE,
+  `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`projectId`, `languageCode`),
+  CONSTRAINT `ProjectLanguageProgress_projectId_fkey` FOREIGN KEY (`projectId`) REFERENCES `Project`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

@@ -1,0 +1,155 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+
+    env:
+      TEST_STORAGE_BASE_URL: http://localhost:3333
+      STORAGE_REPO: git@github.com:IgorShadurin/yumcut-storage.git
+      ALLOW_NO_OAUTH: "1"
+      ALLOW_NO_REVIEW_AUTH: "1"
+      SKIP_PRERENDER: "1"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate test env vars
+        run: |
+          DAEMON_API_PASSWORD=$(openssl rand -hex 24)
+          NEXTAUTH_SECRET=$(openssl rand -hex 32)
+          export DAEMON_API_PASSWORD NEXTAUTH_SECRET
+          echo "DAEMON_API_PASSWORD=$DAEMON_API_PASSWORD" >> $GITHUB_ENV
+          echo "NEXTAUTH_SECRET=$NEXTAUTH_SECRET" >> $GITHUB_ENV
+          echo "TEST_STORAGE_BASE_URL=$TEST_STORAGE_BASE_URL" >> $GITHUB_ENV
+          echo "DATABASE_URL=mysql://placeholder:placeholder@localhost:3306/placeholder" >> $GITHUB_ENV
+          echo "NEXTAUTH_URL=http://localhost:3000" >> $GITHUB_ENV
+          {
+            echo "DAEMON_API_PASSWORD=$DAEMON_API_PASSWORD"
+            echo "NEXTAUTH_SECRET=$NEXTAUTH_SECRET"
+            echo "TEST_STORAGE_BASE_URL=$TEST_STORAGE_BASE_URL"
+            echo "DATABASE_URL=mysql://placeholder:placeholder@localhost:3306/placeholder"
+            echo "NEXTAUTH_URL=http://localhost:3000"
+          } > .env
+
+      - name: Generate upload signing keys (ephemeral)
+        run: |
+          openssl genrsa -out /tmp/upload_private.pem 4096
+          openssl rsa -in /tmp/upload_private.pem -pubout -out /tmp/upload_public.pem
+          echo "UPLOAD_SIGNING_PRIVATE_KEY<<EOF" >> $GITHUB_ENV
+          cat /tmp/upload_private.pem >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+          echo "UPLOAD_SIGNING_PUBLIC_KEY<<EOF" >> $GITHUB_ENV
+          cat /tmp/upload_public.pem >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Configure SSH for storage repo
+        env:
+          STORAGE_DEPLOY_KEY: ${{ secrets.STORAGE_DEPLOY_KEY }}
+        run: |
+          if [ -z "$STORAGE_DEPLOY_KEY" ]; then
+            echo "STORAGE_DEPLOY_KEY is required to clone yumcut-storage" >&2
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          echo "$STORAGE_DEPLOY_KEY" > ~/.ssh/id_ed25519_storage
+          chmod 600 ~/.ssh/id_ed25519_storage
+          ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+          {
+            echo "Host github.com"
+            echo "  HostName github.com"
+            echo "  IdentityFile ~/.ssh/id_ed25519_storage"
+            echo "  IdentitiesOnly yes"
+          } >> ~/.ssh/config
+
+      - name: Clone storage repository
+        run: git clone "$STORAGE_REPO" ../yumcut-storage
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            npm-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install storage dependencies
+        run: cd ../yumcut-storage && npm ci
+
+      - name: Build storage service
+        run: cd ../yumcut-storage && npm run build
+
+      - name: Start storage service
+        env:
+          DAEMON_API_PASSWORD: ${{ env.DAEMON_API_PASSWORD }}
+          STORAGE_ALLOWED_ORIGINS: http://localhost:3001,http://localhost:3000
+          STORAGE_PUBLIC_URL: http://localhost:3333
+          NEXT_PUBLIC_STORAGE_BASE_URL: http://localhost:3333
+        run: |
+          export DAEMON_API_PASSWORD
+          export UPLOAD_SIGNING_PUBLIC_KEY="${UPLOAD_SIGNING_PUBLIC_KEY}"
+          export UPLOAD_SIGNING_PRIVATE_KEY="${UPLOAD_SIGNING_PRIVATE_KEY}"
+          export APP_MODE=storage
+          PORT=3333 HOST=0.0.0.0 npm run start -- -H 0.0.0.0 -p 3333 >/tmp/storage.log 2>&1 &
+          echo $! > /tmp/storage.pid
+        working-directory: ../yumcut-storage
+
+      - name: Wait for storage health
+        env:
+          DAEMON_API_PASSWORD: ${{ env.DAEMON_API_PASSWORD }}
+        run: |
+          for i in {1..40}; do
+            if curl -s -H "x-daemon-password: $DAEMON_API_PASSWORD" http://localhost:3333/api/storage/health | grep -q '"ok":true'; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Storage health check failed" >&2
+          test -f /tmp/storage.log && tail -n 200 /tmp/storage.log || true
+          exit 1
+
+      - name: Prepare daemon test toolchains
+        run: npm run tests:prepare
+
+      - name: Run TypeScript checks
+        run: npm run types:check
+
+      - name: Run shared TypeScript checks
+        run: npm run types:check:common
+
+      - name: Build application
+        run: npm run build
+
+      - name: Run tests
+        env:
+          DAEMON_API_PASSWORD: ${{ env.DAEMON_API_PASSWORD }}
+          TEST_STORAGE_BASE_URL: http://localhost:3333
+          UPLOAD_SIGNING_PRIVATE_KEY: ${{ env.UPLOAD_SIGNING_PRIVATE_KEY }}
+          UPLOAD_SIGNING_PUBLIC_KEY: ${{ env.UPLOAD_SIGNING_PUBLIC_KEY }}
+        run: |
+          npm run test
+
+      - name: Stop storage service
+        if: always()
+        run: |
+          if [ -f /tmp/storage.pid ]; then
+            kill $(cat /tmp/storage.pid) 2>/dev/null || true
+          fi
+          test -f /tmp/storage.log && tail -n 200 /tmp/storage.log || true

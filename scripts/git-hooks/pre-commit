@@ -1,0 +1,9 @@
+#!/bin/sh
+
+set -eu
+
+printf '\n[git-hook] Running project checks before commit...\n'
+
+npm run types:check
+npm run types:check:common
+npm run test:fast

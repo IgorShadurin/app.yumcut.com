@@ -1,0 +1,15 @@
+{
+  "name": "daemon-script-workspace-v2",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "transcript:json": "tsx src/transcript-to-json.ts",
+    "video:basic-effects": "tsx src/video-basic-effects.ts",
+    "video:merge-layers": "tsx src/video-merge-layers.ts",
+    "image:blocks-to-qwen": "tsx src/image-blocks-to-qwen.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.5"
+  }
+}

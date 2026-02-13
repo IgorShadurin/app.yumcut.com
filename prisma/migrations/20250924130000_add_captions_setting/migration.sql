@@ -1,0 +1,3 @@
+ALTER TABLE `UserSettings`
+  ADD COLUMN `captionsEnabled` BOOLEAN NOT NULL DEFAULT TRUE;
+

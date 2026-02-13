@@ -1,0 +1,16 @@
+export enum ProjectStatus {
+  New = 'new',
+  ProcessScript = 'process_script',
+  ProcessScriptValidate = 'process_script_validate',
+  ProcessAudio = 'process_audio',
+  ProcessAudioValidate = 'process_audio_validate',
+  ProcessTranscription = 'process_transcription',
+  ProcessMetadata = 'process_metadata',
+  ProcessCaptionsVideo = 'process_captions_video',
+  ProcessImagesGeneration = 'process_images_generation',
+  ProcessVideoPartsGeneration = 'process_video_parts_generation',
+  ProcessVideoMain = 'process_video_main',
+  Error = 'error',
+  Done = 'done',
+  Cancelled = 'cancelled',
+}

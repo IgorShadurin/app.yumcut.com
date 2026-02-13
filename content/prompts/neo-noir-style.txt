@@ -1,0 +1,11 @@
+STYLE GUIDANCE:
+- Monochrome neo-noir comic panel aesthetic with aggressive chiaroscuro lighting.
+- Render every frame in pure black-and-white; avoid grayscale, gradients, or color accents entirely.
+- Use bold brush inking with heavy spotted blacks and razor-sharp highlights to carve out silhouettes.
+- Apply dense cross-hatching and gritty textures to build tone, mood, and depth.
+- Embrace cinematic diagonal compositions that feel tense and dramatic.
+- Keep character poses expressive and angular, reinforcing the noir mood without losing readability.
+- Backgrounds should support the story with stark geometry or moody negative space—no soft fades.
+- Maintain continuity in character design and lighting direction across panels.
+
+REMINDER: Absolutely no color, grayscale shading, or soft airbrushed gradients—only high-contrast black ink and white light.

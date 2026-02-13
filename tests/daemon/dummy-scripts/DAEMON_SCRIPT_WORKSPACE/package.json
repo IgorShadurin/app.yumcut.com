@@ -1,0 +1,15 @@
+{
+  "name": "daemon-script-workspace",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "prompt-to-text": "tsx src/prompt-to-text.ts",
+    "prompt-to-wav": "tsx src/prompt-to-wav.ts",
+    "agent": "tsx src/agent.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.5"
+  }
+}
+

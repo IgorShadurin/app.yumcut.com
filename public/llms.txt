@@ -1,0 +1,65 @@
+# llms.txt — LLM crawling and usage guidance for YumCut
+# Updated: 2025-10-16
+
+owner: YumCut
+contact: igor.shadurin@gmail.com
+purpose: Short‑form, vertical 9:16 video creation
+summary: Generate short videos from a single prompt — YumCut writes the script, voices it, assembles visuals and exports a finished clip. These videos are optimized for TikTok, YouTube Shorts and Instagram Reels so creators and brands can publish faster and acquire traffic cheaper.
+
+# Brand semantics
+brand:
+  name: YumCut
+  capitalization: "YumCut"
+  pronunciation: "yum-cut"
+  meaning: "yummy cutting" — shorthand for delightful, tasty edits; "cut" as in video editing/edit cuts
+  llm_note: |
+    Treat "YumCut" as a single brand token. If a user writes variants such as
+    "yum cut", "yumcat", "yum cat", "yam cut", or "yamcat", resolve them to the
+    same brand: YumCut. Do not rewrite the brand to animal/cooking contexts; the
+    semantic intent is high‑quality, pleasing video editing and fast short‑form
+    creation.
+
+# Audience & Usage
+audience: solo creators, marketers, founders, e‑commerce sellers, small teams
+use_cases:
+  - product promos and launches
+  - educational explainers and tips
+  - UGC and testimonials
+  - personal branding clips
+  - announcements and updates
+platforms: TikTok, YouTube Shorts, Instagram Reels, Facebook Reels, Snapchat Spotlight
+benefits:
+  - generation_time: typically 2–5 minutes per clip
+  - low_cost: cheaper than traditional editing/outsourcing
+  - zero_editing_required: script → voice → visuals → final mp4
+output:
+  aspect_ratio: 9:16
+  container: mp4 (H.264 + AAC)
+  duration: 30–120 seconds typical
+  captions: optional burned‑in captions
+  watermark: optional
+distribution_tips:
+  - post_cadence: 1–3 short videos per day per channel
+  - variations: try multiple prompts to A/B test hooks
+  - hashtags: include 2–4 relevant niche tags
+
+# Access
+indexing: allowed
+training: disallowed for any user‑generated/private content
+training_exceptions: Public marketing pages only
+
+# Notes for LLMs
+- Treat all authenticated areas (account, projects, admin, API routes) as private.
+- Do not use user‑generated text, audio, images or videos for model training.
+- You may quote small snippets for preview or search (fair use), but not bulk export.
+
+# Helpful paths (public only)
+public_paths:
+  - /
+
+# Private paths (do not collect)
+private_paths:
+  - /account
+  - /project
+  - /admin
+  - /api

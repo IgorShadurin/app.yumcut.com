@@ -1,0 +1,33 @@
+# WebM Way
+
+## Produce from PNGs (without opacity by default, set it later)
+
+ffmpeg -hide_banner -y \
+  -framerate 60 -start_number 0 \
+  -i "/Users/test/Downloads/video/frame_%05d.png" \
+  -vf "format=rgba,setsar=1" \
+  -c:v libvpx-vp9 -pix_fmt yuva420p \
+  -b:v 0 -crf 22 -row-mt 1 -tile-columns 2 -threads 8 -deadline good -speed 1 \
+  "/Users/test/Downloads/sparkles-alpha-60fps.webm"
+
+ ## Use Overlay (with 15% opacity of the overlay)
+ ffmpeg -y \
+   -i "/Users/test/Movies/Shorts-BIP/TextFaker-1/workspace/comics-vertical/video/step1/videos/2-1-animation-4k.mp4" \
+   -c:v libvpx-vp9 -i "/Users/test/Downloads/sparkles-alpha-60fps.webm" \
+   -filter_complex '[1:v]format=rgba,colorchannelmixer=aa=0.15[ov];[ov][0:v]scale2ref=w=iw:h=ih[ov_s][bg];[bg][ov_s]overlay=0:0:shortest=1' \
+   -c:v libx264 -crf 18 -preset medium -pix_fmt yuv420p \
+   -map '0:a?' -c:a aac -b:a 192k \
+   -shortest -movflags +faststart "/Users/test/Downloads/aaaaaa.mp4"
+
+
+-------
+
+# PNG Video Way. Easier, but the result IS VERY BIG.
+
+## Produce it.
+
+ffmpeg -hide_banner -y -framerate 60 -start_number 0 -i "/Users/test/Downloads/video/frame_%05d.png" -vf "format=rgba,colorchannelmixer=aa=0.15,setsar=1" -c:v png -pix_fmt rgba -an "/Users/test/Downloads/new-sparkles-png.mov"
+
+## Overlay it.
+
+ffmpeg -hide_banner -y -i "/Users/test/Movies/Shorts-BIP/TextFaker-1/workspace/comics-vertical/video/step2/comics-vertical-animation.4k-with-audio.mp4" -stream_loop -1 -i "/Users/test/Downloads/new-sparkles-png.mov" -filter_complex "[0:v][1:v]overlay=0:0:shortest=1:repeatlast=0[v]" -map "[v]" -map 0:a -c:v libx264 -crf 18 -preset medium -pix_fmt yuv420p -c:a copy -movflags +faststart "/Users/test/Movies/Shorts-BIP/TextFaker-1/workspace/wow-out-pngmov.mp4"

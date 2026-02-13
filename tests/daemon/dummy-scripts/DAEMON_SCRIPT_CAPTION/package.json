@@ -1,0 +1,13 @@
+{
+  "name": "daemon-script-caption",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "render:headless": "tsx src/render-captions.ts",
+    "render:python": "tsx src/render-captions.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.5"
+  }
+}

@@ -1,0 +1,12 @@
+STYLE GUIDANCE:
+- Clean, engaging comic-style illustration with expressive character acting.
+- Keep compositions bold and readable; avoid intricate micro-details that disappear at 9:16 delivery size.
+- Use confident line work, clear silhouettes, and purposeful posing that reads instantly.
+- Prefer white or light neutral backgrounds that keep focus on characters and key props.
+- Employ vibrant but harmonious colors; use contrast to separate subject from background.
+- Focus on visual metaphors, props, and body language to communicate ideas—never rely on textual lettering.
+- Keep lighting consistent between the two panels while allowing scene-specific accents.
+- Ensure the provided character remains on-model in both panels, matching costume and core traits across scenes.
+- Present cinematic camera angles that feel dynamic yet easy to parse in vertical video layouts.
+
+REMINDER: Deliver strictly visual storytelling. No words, lettering, logos, UI, or symbolic text anywhere in the artwork.

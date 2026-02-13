@@ -1,0 +1,15 @@
+vivaleum-inspiring-corporate.wav: -21.6db
+other -21.6db as well. that with *-back.
+
+
+Music generated on Suno with the prompt:
+
+```
+corporate background music. Inspiring
+
+Mood: Uplifting, optimistic, motivational, neutral, and clean. It conveys a sense of progress, efficiency, and gentle forward momentum without being overly energetic or emotional.
+
+Genre: Corporate, Business, Royalty-Free Infomercial Music, Presentation Music.
+
+Tempo: A steady, moderate tempo, approximately 120-125 BPM (beats per minute). It's fast enough to feel active but slow enough to remain in the background.
+```

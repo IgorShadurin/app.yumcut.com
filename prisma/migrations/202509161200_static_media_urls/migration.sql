@@ -1,0 +1,12 @@
+ALTER TABLE `Project`
+  ADD COLUMN `finalVoiceoverUrl` VARCHAR(512) NULL,
+  ADD COLUMN `finalVideoUrl` VARCHAR(512) NULL;
+
+ALTER TABLE `AudioCandidate`
+  ADD COLUMN `publicUrl` VARCHAR(512) NULL;
+
+ALTER TABLE `ImageAsset`
+  ADD COLUMN `publicUrl` VARCHAR(512) NULL;
+
+ALTER TABLE `VideoAsset`
+  ADD COLUMN `publicUrl` VARCHAR(512) NULL;

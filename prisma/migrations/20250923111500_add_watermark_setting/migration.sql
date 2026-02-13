@@ -1,0 +1,2 @@
+ALTER TABLE `UserSettings`
+  ADD COLUMN `watermarkEnabled` BOOLEAN NOT NULL DEFAULT TRUE;
