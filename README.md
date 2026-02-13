@@ -61,6 +61,72 @@ Adjacent tools (useful, but different primary use-case):
 
 YumCut focuses on being the open-source/free analog for end-to-end short vertical generation, not only post-editing.
 
+## Real Videos
+
+Real social links:
+
+<table>
+  <tr>
+    <td align="center" valign="top">
+      <a href="https://youtube.com/shorts/ZnUjLcjjc0k" target="_blank" rel="noopener noreferrer nofollow">
+        <img src="docs/assets/video-examples/proof/youtube-1-5k-a.jpg" width="180" alt="Simpsons style proof video screenshot" />
+      </a>
+    </td>
+    <td align="center" valign="top">
+      <a href="https://youtube.com/shorts/Ed8-2ZvRGRg" target="_blank" rel="noopener noreferrer nofollow">
+        <img src="docs/assets/video-examples/proof/youtube-1-5k-b.jpg" width="180" alt="Creepy Italian story proof video screenshot" />
+      </a>
+    </td>
+    <td align="center" valign="top">
+      <a href="https://www.youtube.com/shorts/V4Zj5Xr52GE" target="_blank" rel="noopener noreferrer nofollow">
+        <img src="docs/assets/video-examples/proof/youtube-es-1-5k.jpg" width="180" alt="Simpsons in Spanish proof video screenshot" />
+      </a>
+    </td>
+    <td align="center" valign="top">
+      <a href="https://youtube.com/shorts/ur2t2970z9M" target="_blank" rel="noopener noreferrer nofollow">
+        <img src="docs/assets/video-examples/proof/youtube-pt-1-2k.jpg" width="180" alt="99 Nights in the Forest proof video screenshot" />
+      </a>
+    </td>
+    <td align="center" valign="top">
+      <a href="https://vt.tiktok.com/ZSaC2vsr6/" target="_blank" rel="noopener noreferrer nofollow">
+        <img src="docs/assets/video-examples/proof/bitcoin-90k.jpg" width="180" alt="Bitcoin proof video screenshot" />
+      </a>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top">
+      <sub>Simpsons Style</sub>
+      <br />
+      <sub>YouTube Shorts · 1.5K</sub>
+    </td>
+    <td align="center" valign="top">
+      <sub>Italian Horror</sub>
+      <br />
+      <sub>YouTube Shorts · 1.5K</sub>
+    </td>
+    <td align="center" valign="top">
+      <sub>Simpsons Spanish</sub>
+      <br />
+      <sub>YouTube Shorts · 1.5K</sub>
+    </td>
+    <td align="center" valign="top">
+      <sub>99 Nights Story</sub>
+      <br />
+      <sub>YouTube Shorts · 1.2K</sub>
+    </td>
+    <td align="center" valign="top">
+      <sub>Bitcoin Story</sub>
+      <br />
+      <sub>TikTok · 90K</sub>
+    </td>
+  </tr>
+</table>
+
+### Other Videos
+
+![Possible videos generated (3x3 collage)](docs/assets/video-examples/generated/possible-videos-generated-3x3.jpg?4)
+
+Temporary collage script: `scripts/tmp/build-video-collage.sh`
 
 ## Technical Documentation
 
