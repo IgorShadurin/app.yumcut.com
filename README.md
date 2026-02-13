@@ -2,68 +2,23 @@
 
 Open-source AI short video generator for TikTok, YouTube Shorts, and Instagram Reels.
 
-[YumCut](https://yumcut.com/?utm_source=github) is a free/self-hosted alternative to closed short-video SaaS tools. It automates the full short-form pipeline:
+[YumCut](https://yumcut.com/?utm_source=github) is a free/self-hosted alternative to closed short-video SaaS tools for end-to-end short-form production.
 
-- prompt to script
-- script to voice
-- visuals + captions + assembly
-- final vertical video export (9:16)
+YumCut is built for creators, agencies, and growth teams that need to produce short vertical videos fast and consistently.
+You provide the idea, YumCut generates the script, voice, visuals, captions, and final edit for a ready-to-post 9:16 video.
 
-If you are searching for:
+Purpose of the project:
 
-- open-source AI short video generator
-- free faceless video generator
-- Clippie AI alternative
-- FacelessReels alternative
-- TikTok / Reels / Shorts generator
+- turn short-form production into a repeatable workflow instead of manual editing chaos
+- reduce production cost with open-source/self-hosted control
+- help teams publish more often and test more content ideas per week
 
-this repository is built for that.
+Main use cases:
 
-## Why YumCut
-
-- Open-source and self-hosted: no vendor lock-in, fully auditable code.
-- Built for short-form growth workflows: script, voice, visuals, captions, publish-ready outputs.
-- Cost control: bring your own providers, run local components where possible, and tune quality/speed trade-offs.
-- Production-oriented architecture: separate app + storage modes, signed upload/delete grants, typed API boundaries.
-
-## Cost Positioning
-
-YumCut is positioned as a cost-efficient alternative to premium closed models and platforms.
-
-- High-end proprietary video APIs can be expensive at scale. For example, Google Vertex AI lists Veo 3.0 Fast at `$0.40/sec` output and Veo 3.0 at `$0.75/sec` output.
-- At those rates, a single 60s output can cost about `$24` to `$45` before extra tooling.
-- With YumCut, teams can often reach order-of-magnitude lower effective cost by combining open/self-hosted pieces plus selective paid APIs.
-
-Expensive closed-model examples teams often compare against:
-
-- Veo (Vertex AI / premium tiers)
-- Runway Gen video models
-- Pika premium plans
-- Luma Dream Machine paid plans
-- other closed, credit-based video generation APIs
-
-## Similar Products (and Where YumCut Fits)
-
-Tools that are directly focused on short vertical generation:
-
-- Clippie AI
-- Wava AI
-- FacelessReels
-- Faceless.video
-- Revid.ai
-- Viralmaxing
-
-Adjacent tools (useful, but different primary use-case):
-
-- Submagic (strong caption/editing workflow)
-- Klap (repurposing long-form into shorts)
-- Creatify (AI ad creative focus)
-
-YumCut focuses on being the open-source/free analog for end-to-end short vertical generation, not only post-editing.
-
-## Real Videos
-
-Real social links:
+- daily TikTok / YouTube Shorts / Instagram Reels publishing for faceless channels
+- turning one idea into multiple language versions for wider reach
+- testing different hooks/styles quickly without rebuilding videos from scratch
+- agency-style batch production across multiple brands or clients
 
 <table>
   <tr>
@@ -126,7 +81,50 @@ Real social links:
 
 ![Possible videos generated (3x3 collage)](docs/assets/video-examples/generated/possible-videos-generated-3x3.jpg?4)
 
-Temporary collage script: `scripts/tmp/build-video-collage.sh`
+## Why YumCut
+
+- Open-source and self-hosted: no vendor lock-in, fully auditable code.
+- Built for short-form growth workflows: script, voice, visuals, captions, publish-ready outputs.
+- Cost control: bring your own providers, run local components where possible, and tune quality/speed trade-offs.
+- Production-oriented architecture: separate app + storage modes, signed upload/delete grants, typed API boundaries.
+
+## Cost Positioning
+
+YumCut is positioned as a cost-efficient alternative to premium closed models and platforms.
+
+- For personal use, YumCut is free.
+- The already deployed hosted version is available at [YumCut.com](https://yumcut.com/).
+- If you want to host YumCut for clients, sell access, or run it as a commercial service, you need to acquire a commercial license.
+- Licensing contact: `igor.shadurin@gmail.com`
+
+- In practice, YumCut video generation can be around 10x cheaper than popular closed video generators, depending on your stack and providers.
+
+Expensive closed-model examples teams often compare against:
+
+- Veo (Vertex AI / premium tiers)
+- Runway Gen video models
+- Pika premium plans
+- Luma Dream Machine paid plans
+- other closed, credit-based video generation APIs
+
+## Similar Products (and Where YumCut Fits)
+
+Tools that are directly focused on short vertical generation:
+
+- Clippie AI
+- Wava AI
+- FacelessReels
+- Faceless.video
+- Revid.ai
+- Viralmaxing
+
+Adjacent tools (useful, but different primary use-case):
+
+- Submagic (strong caption/editing workflow)
+- Klap (repurposing long-form into shorts)
+- Creatify (AI ad creative focus)
+
+YumCut focuses on being the open-source/free analog for end-to-end short vertical generation, not only post-editing.
 
 ## Technical Documentation
 
