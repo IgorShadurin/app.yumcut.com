@@ -2,7 +2,7 @@
 
 Open-source AI short video generator for TikTok, YouTube Shorts, and Instagram Reels.
 
-[YumCut](https://yumcut.com/?utm_source=github) is a free/self-hosted alternative to closed short-video SaaS tools for end-to-end short-form production.
+[YumCut](https://yumcut.com/?utm_source=github_app_yc) is a free/self-hosted alternative to closed short-video SaaS tools for end-to-end short-form production.
 
 YumCut is built for creators, agencies, and growth teams that need to produce short vertical videos fast and consistently.
 You provide the idea, YumCut generates the script, voice, visuals, captions, and final edit for a ready-to-post 9:16 video.
