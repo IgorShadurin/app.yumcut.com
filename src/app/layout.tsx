@@ -299,6 +299,16 @@ export default async function RootLayout({
       <head>
         <StructuredData />
 
+        <Script src="https://www.googletagmanager.com/gtag/js?id=G-D0BY4XN79G" strategy="afterInteractive" />
+        <Script id="ga-gtag-init" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-D0BY4XN79G');
+          `}
+        </Script>
+
         <Script id="yandex-metrika" strategy="afterInteractive">
           {`
     (function(m,e,t,r,i,k,a){
