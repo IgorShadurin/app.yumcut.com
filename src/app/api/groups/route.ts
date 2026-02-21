@@ -8,11 +8,21 @@ import { createGroupSchema } from '@/server/validators/groups';
 import { notifyAdminsOfNewGroup } from '@/server/telegram';
 import { config } from '@/server/config';
 import { randomUUID } from 'crypto';
+import { getProjectCreationSettings } from '@/server/admin/project-creation';
 
 export const POST = withApiError(async function POST(req: NextRequest) {
   const session = await getAuthSession();
   if (!session?.user || !(session.user as any).id) return unauthorized();
   const userId = (session.user as any).id as string;
+  const projectCreationSettings = await getProjectCreationSettings();
+  if (!projectCreationSettings.enabled) {
+    return error(
+      'PROJECT_CREATION_DISABLED',
+      projectCreationSettings.disabledReason || 'Project creation is temporarily unavailable.',
+      423,
+      { reason: projectCreationSettings.disabledReason },
+    );
+  }
   const body = await req.json();
   const parsed = createGroupSchema.safeParse(body);
   if (!parsed.success) {

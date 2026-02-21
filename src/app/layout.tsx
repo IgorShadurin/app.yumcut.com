@@ -21,6 +21,7 @@ import { parseStoredCharacterSelection, resolveCharacterSelectionSnapshot } from
 import { getDefaultVoiceExternalId } from '@/server/voices';
 import { ensureSchedulerPreferences } from '@/server/publishing/preferences';
 import { normalizeLanguageVoiceMap } from '@/shared/voices/language-voice-map';
+import { getProjectCreationSettings } from '@/server/admin/project-creation';
 import {
   DEFAULT_APP_LANGUAGE,
   normalizeAppLanguage,
@@ -181,6 +182,9 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const defaultVoiceId = SKIP_BUILD_PRERENDER ? null : await getDefaultVoiceExternalId();
+  const projectCreationSettings = SKIP_BUILD_PRERENDER
+    ? { enabled: true, disabledReason: '' }
+    : await getProjectCreationSettings().catch(() => ({ enabled: true, disabledReason: '' }));
 
   const defaultScheduler = ensureSchedulerPreferences();
   const makeDefaultSettings = (sidebarOpen: boolean): import('@/shared/types').UserSettingsDTO => ({
@@ -202,6 +206,8 @@ export default async function RootLayout({
     scriptAvoidanceGuidance: '',
     audioStyleGuidanceEnabled: false,
     audioStyleGuidance: '',
+    projectCreationEnabled: projectCreationSettings.enabled,
+    projectCreationDisabledReason: projectCreationSettings.disabledReason,
     characterSelection: null,
     preferredVoiceId: defaultVoiceId,
     preferredTemplateId: null,

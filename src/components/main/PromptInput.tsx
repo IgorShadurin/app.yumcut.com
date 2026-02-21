@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DurationDropdown } from './DurationDropdown';
 import { LanguageDropdown } from './LanguageDropdown';
 import { SettingsPopover } from './SettingsPopover';
@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip } from '@/components/common/Tooltip';
-import { Wand2, Loader2, Settings, Smartphone, User, Lightbulb, FileText, Layers } from 'lucide-react';
+import { Wand2, Loader2, Settings, Smartphone, User, Lightbulb, FileText, Layers, AlertTriangle } from 'lucide-react';
 import { LIMITS } from '@/shared/constants/limits';
 import { useTokenSummary } from '@/hooks/useTokenSummary';
 import { TOKEN_COSTS } from '@/shared/constants/token-costs';
@@ -66,6 +66,10 @@ type PromptInputCopy = {
   modeIdea: string;
   createProject: string;
   create: string;
+  creationDisabledTitle: string;
+  creationDisabledDescription: string;
+  creationDisabledReasonLabel: string;
+  creationDisabledNoReason: string;
   notEnoughTokensTitle: string;
   notEnoughTokensDescription: (projectCost: number, tokenBalance: number) => string;
   buyTokens: string;
@@ -85,9 +89,13 @@ const PROMPT_INPUT_COPY: Record<AppLanguageCode, PromptInputCopy> = {
     modeIdeaTooltip: 'Idea mode: your idea will be expanded into a script',
     modeScript: 'Script',
     modeIdea: 'Idea',
-    createProject: 'Create project',
-    create: 'Create',
-    notEnoughTokensTitle: 'Not enough tokens',
+  createProject: 'Create project',
+  create: 'Create',
+  creationDisabledTitle: 'New projects are temporarily disabled',
+  creationDisabledDescription: 'Project creation is currently disabled.',
+  creationDisabledReasonLabel: 'Reason',
+  creationDisabledNoReason: 'No reason provided.',
+  notEnoughTokensTitle: 'Not enough tokens',
     notEnoughTokensDescription: (projectCost, tokenBalance) =>
       `You need ${projectCost} tokens for this project but have ${tokenBalance}.`,
     buyTokens: 'Buy tokens in the app',
@@ -106,9 +114,13 @@ const PROMPT_INPUT_COPY: Record<AppLanguageCode, PromptInputCopy> = {
     modeIdeaTooltip: 'Режим идеи: ИИ расширит идею до готового сценария',
     modeScript: 'Сценарий',
     modeIdea: 'Идея',
-    createProject: 'Создать проект',
-    create: 'Создать',
-    notEnoughTokensTitle: 'Недостаточно токенов',
+  createProject: 'Создать проект',
+  create: 'Создать',
+  creationDisabledTitle: 'Создание проектов временно отключено',
+  creationDisabledDescription: 'Создание новых проектов сейчас отключено.',
+  creationDisabledReasonLabel: 'Причина',
+  creationDisabledNoReason: 'Не указана.',
+  notEnoughTokensTitle: 'Недостаточно токенов',
     notEnoughTokensDescription: (projectCost, tokenBalance) =>
       `Для этого проекта нужно ${projectCost} токенов, а у вас ${tokenBalance}.`,
     buyTokens: 'Купить токены',
@@ -270,6 +282,9 @@ export function PromptInput() {
   const perSecondCost = tokenSummary?.perSecondProject ?? TOKEN_COSTS.perSecondProject;
   const projectCost = baseSeconds * perSecondCost * languageMultiplier;
   const hasTokensForCurrent = tokenBalance >= projectCost;
+  const projectCreationDisabled = settings?.projectCreationEnabled === false;
+  const projectCreationReason = (settings?.projectCreationDisabledReason || '').trim();
+  const displayedProjectCreationReason = projectCreationReason || copy.creationDisabledNoReason;
   const showLowBalanceWarning = tokenBalance <= projectCost;
 
   const templateCustomData = templateSelection?.customData ?? null;
@@ -314,6 +329,13 @@ export function PromptInput() {
 
   async function submit() {
     if (submitting) return;
+    if (projectCreationDisabled) {
+      toast.error(copy.creationDisabledTitle, {
+        description: `${copy.creationDisabledDescription} ${copy.creationDisabledReasonLabel}: ${displayedProjectCreationReason}`,
+        duration: 8000,
+      });
+      return;
+    }
     if (projectStateValidation.disabled.submit) return;
     if (!hasTokensForCurrent) {
       if (typeof window !== 'undefined') {
@@ -446,18 +468,30 @@ export function PromptInput() {
           <Textarea
             className="min-h-[140px] sm:min-h-[180px] w-full resize-none border-0 bg-transparent p-4 pr-4 text-sm leading-relaxed focus-visible:ring-0 focus-visible:outline-none"
             placeholder={placeholder || copy.placeholder}
+            disabled={projectCreationDisabled}
             value={text}
             onChange={(e) => {
               const next = e.target.value;
               setText(next.length > LIMITS.promptMax ? next.slice(0, LIMITS.promptMax) : next);
             }}
             onKeyDown={(e) => {
-              if (!submitting && !projectStateValidation.disabled.submit && (e.metaKey || e.ctrlKey) && e.key === 'Enter' && text.trim()) {
+              if (!submitting && !projectCreationDisabled && !projectStateValidation.disabled.submit && (e.metaKey || e.ctrlKey) && e.key === 'Enter' && text.trim()) {
                 e.preventDefault();
                 submit();
               }
             }}
           />
+          {projectCreationDisabled ? (
+            <div className="mx-4 mb-3 mt-2 flex items-start gap-2 rounded-lg border border-amber-300/70 bg-amber-50 px-3 py-2 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div className="space-y-1 text-xs leading-5">
+                <p>{copy.creationDisabledDescription}</p>
+                <p className="text-amber-800/90 dark:text-amber-200/90">
+                  {copy.creationDisabledReasonLabel}: {displayedProjectCreationReason}
+                </p>
+              </div>
+            </div>
+          ) : null}
           {projectStateValidation.fieldErrors.text ? (
             <div className="mt-2 px-4 pb-1 text-sm text-rose-700 dark:text-rose-200">
               {projectStateValidation.fieldErrors.text}
@@ -607,7 +641,9 @@ export function PromptInput() {
               type="button"
               className="w-full sm:w-9 sm:h-9 sm:px-0 sm:rounded-full"
               onClick={submit}
-              disabled={!text.trim() || submitting || projectStateValidation.disabled.submit || (!tokensLoading && !hasTokensForCurrent)}
+              disabled={
+                !text.trim() || submitting || projectStateValidation.disabled.submit || projectCreationDisabled || (!tokensLoading && !hasTokensForCurrent)
+              }
               aria-label={copy.createProject}
               title={copy.createProject}
             >

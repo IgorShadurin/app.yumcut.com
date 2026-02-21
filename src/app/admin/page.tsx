@@ -14,16 +14,19 @@ import { formatDateTimeAdmin } from '@/lib/date';
 import { AdminNotificationSettingsForm } from '@/components/admin/AdminNotificationSettingsForm';
 import { AdminVoiceProviderSettingsForm } from '@/components/admin/AdminVoiceProviderSettingsForm';
 import { AdminImageEditorSettingsForm } from '@/components/admin/AdminImageEditorSettingsForm';
+import { AdminProjectCreationSettingsForm } from '@/components/admin/AdminProjectCreationSettingsForm';
 import { AdminUserCardMobile } from '@/components/admin/AdminUserCardMobile';
 import { AdminProjectCardMobile } from '@/components/admin/AdminProjectCardMobile';
+import { getProjectCreationSettings } from '@/server/admin/project-creation';
 
 export default async function AdminHomePage() {
-  const [snapshot, notificationSettings, publishQueue, voiceProviderSettings, imageEditorSettings] = await Promise.all([
+  const [snapshot, notificationSettings, publishQueue, voiceProviderSettings, imageEditorSettings, projectCreationSettings] = await Promise.all([
     getAdminDashboardSnapshot(),
     getAdminNotificationSettings(),
     getPublishTaskSnapshot(),
     getAdminVoiceProviderSettings(),
     getAdminImageEditorSettings(),
+    getProjectCreationSettings(),
   ]);
   const { counts } = snapshot;
   const queueStatuses = ['pending', 'retry', 'processing', 'scheduled', 'failed'] as const;
@@ -469,6 +472,19 @@ export default async function AdminHomePage() {
               </p>
             </div>
             <AdminImageEditorSettingsForm initial={imageEditorSettings} />
+            <Separator className="my-6" />
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Project creation</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Temporarily stop project creation from the public UI and API with a clear reason for users.
+              </p>
+            </div>
+            <AdminProjectCreationSettingsForm
+              initial={{
+                projectCreationEnabled: projectCreationSettings.enabled,
+                projectCreationDisabledReason: projectCreationSettings.disabledReason,
+              }}
+            />
           </div>
         </CardContent>
       </Card>

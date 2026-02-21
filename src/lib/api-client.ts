@@ -90,6 +90,14 @@ export const Api = {
       body: JSON.stringify(payload),
       errorToastTitle: 'Failed to update image editor settings',
     }),
+  getAdminProjectCreationSettings: () =>
+    api<import('@/shared/types').AdminProjectCreationSettingsDTO>('/api/admin/project-creation'),
+  updateAdminProjectCreationSettings: (payload: import('@/shared/types').AdminProjectCreationSettingsDTO) =>
+    api<import('@/shared/types').AdminProjectCreationSettingsDTO>('/api/admin/project-creation', {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+      errorToastTitle: 'Failed to update project creation settings',
+    }),
   deleteProject: (id: string) => api(`/api/projects/${id}`, { method: 'DELETE' }),
   createProject: (payload: any) => api<import('@/shared/types').ProjectListItemDTO>('/api/projects', { method: 'POST', body: JSON.stringify(payload) }),
   // Groups API

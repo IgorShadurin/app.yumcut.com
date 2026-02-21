@@ -38,6 +38,8 @@ export interface UserSettingsDTO {
   preferredTemplateId: string | null;
   schedulerDefaultTimes: Record<string, string>;
   schedulerCadence: Record<string, SchedulerCadenceValue>;
+  projectCreationEnabled: boolean;
+  projectCreationDisabledReason: string;
 }
 
 export interface TemplateVoiceOptionDTO {
@@ -159,6 +161,11 @@ export interface AdminVoiceProviderSettingsDTO {
 
 export interface AdminImageEditorSettingsDTO {
   enabled: boolean;
+}
+
+export interface AdminProjectCreationSettingsDTO {
+  projectCreationEnabled: boolean;
+  projectCreationDisabledReason: string;
 }
 
 export interface ProjectDetailDTO {

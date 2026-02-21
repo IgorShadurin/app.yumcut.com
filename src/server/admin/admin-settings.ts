@@ -4,6 +4,7 @@ import { prisma } from '@/server/db';
 export const ADMIN_SETTING_KEYS = {
   voiceProviders: 'voiceProviders',
   imageEditor: 'imageEditor',
+  projectCreation: 'projectCreation',
 } as const;
 
 export type AdminSettingKey = (typeof ADMIN_SETTING_KEYS)[keyof typeof ADMIN_SETTING_KEYS];

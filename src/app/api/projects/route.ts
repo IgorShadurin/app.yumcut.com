@@ -19,6 +19,7 @@ import { validateProjectState } from '@/shared/projects';
 import { normalizeTemplateCustomData, type TemplateCustomData } from '@/shared/templates/custom-data';
 import { getAdminVoiceProviderSettings } from '@/server/admin/voice-providers';
 import { buildVoiceProviderSet } from '@/shared/constants/voice-providers';
+import { getProjectCreationSettings } from '@/server/admin/project-creation';
 
 export const GET = withApiError(async function GET(req: NextRequest) {
   const auth = await authenticateApiRequest(req);
@@ -44,6 +45,15 @@ export const POST = withApiError(async function POST(req: NextRequest) {
   const auth = await authenticateApiRequest(req);
   if (!auth) return unauthorized();
   const userId = auth.userId;
+  const projectCreationSettings = await getProjectCreationSettings();
+  if (!projectCreationSettings.enabled) {
+    return error(
+      'PROJECT_CREATION_DISABLED',
+      projectCreationSettings.disabledReason || 'Project creation is temporarily unavailable.',
+      423,
+      { reason: projectCreationSettings.disabledReason },
+    );
+  }
   const json = await req.json();
   const parsed = createProjectSchema.safeParse(json);
   if (!parsed.success) {

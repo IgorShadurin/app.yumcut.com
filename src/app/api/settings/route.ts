@@ -9,6 +9,7 @@ import {
   serializeStoredCharacterSelection,
   resolveCharacterSelectionSnapshot,
 } from '@/server/characters/selection';
+import { getProjectCreationSettings } from '@/server/admin/project-creation';
 import {
   getDefaultVoiceExternalId,
   resolveVoiceExternalId,
@@ -25,6 +26,7 @@ export const GET = withApiError(async function GET() {
   const adminVoiceProviders = await getAdminVoiceProviderSettings();
   const allowedProviders = buildVoiceProviderSet(adminVoiceProviders.enabledProviders);
   const defaultVoiceId = await getDefaultVoiceExternalId({ allowedProviders });
+  const projectCreationSettings = await getProjectCreationSettings();
   const session = await getAuthSession();
   if (!session?.user?.email || !(session.user as any).id) {
     // Return global defaults for unauthenticated users
@@ -37,6 +39,8 @@ export const GET = withApiError(async function GET() {
       autoApproveAudio: true,
       watermarkEnabled: true,
       captionsEnabled: true,
+      projectCreationEnabled: projectCreationSettings.enabled,
+      projectCreationDisabledReason: projectCreationSettings.disabledReason,
       defaultDurationSeconds: null,
       sidebarOpen: false,
       defaultUseScript: false,
@@ -97,6 +101,8 @@ export const GET = withApiError(async function GET() {
     autoApproveAudio: settings.autoApproveAudio,
     watermarkEnabled: (settings as any)?.watermarkEnabled ?? true,
     captionsEnabled: (settings as any)?.captionsEnabled ?? true,
+    projectCreationEnabled: projectCreationSettings.enabled,
+    projectCreationDisabledReason: projectCreationSettings.disabledReason,
     defaultDurationSeconds: settings.defaultDurationSec,
     // When there are no active projects, always return closed
     sidebarOpen: activeCount > 0
