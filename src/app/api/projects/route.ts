@@ -15,6 +15,7 @@ import {
   DEFAULT_IMAGE_GENERATION_WIDTH,
   type ImagePrankGenerationModel,
   imagePrankGenerationDimensionsForAspect,
+  getImagePrankGenerationSizeValidationError,
   normalizeSelectableImagePrankGenerationModel,
 } from '@/shared/constants/image-generation';
 import { spendTokens, makeUserInitiator, TOKEN_TRANSACTION_TYPES } from '@/server/tokens';
@@ -885,6 +886,15 @@ async function createImageGenerationProject(params: {
         imagePrankReferenceAspectRatio(resolvedImagePrank),
       )
     : null;
+  if (resolvedImagePrank && imagePrankDimensions) {
+    const sizeValidationError = getImagePrankGenerationSizeValidationError(
+      resolvedImagePrank.model,
+      imagePrankDimensions,
+    );
+    if (sizeValidationError) {
+      return error('VALIDATION_ERROR', sizeValidationError, 400);
+    }
+  }
   const imageSpec = {
     provider: 'runware',
     model: resolvedImagePrank ? resolvedImagePrank.model : 'runware:108@1',

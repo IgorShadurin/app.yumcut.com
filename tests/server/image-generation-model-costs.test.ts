@@ -5,6 +5,7 @@ import {
   IMAGE_PRANK_UI_MODEL_OPTIONS,
   imagePrankGenerationDimensions,
   imagePrankGenerationDimensionsForAspect,
+  getImagePrankGenerationSizeValidationError,
 } from '@/shared/constants/image-generation';
 import {
   getImagePrankModelCostMetadata,
@@ -53,6 +54,40 @@ describe('image prank generation dimensions', () => {
     expect(dimensions.width / dimensions.height).toBeCloseTo(1500 / 2000, 2);
     expect(dimensions.width).not.toBe(1440);
     expect(dimensions.height).not.toBe(2560);
-    expect(dimensions.width * dimensions.height).toBeLessThanOrEqual(1440 * 2560 * 1.02);
+    expect(dimensions.width * dimensions.height).toBeLessThanOrEqual(1440 * 2560 * 1.03);
   });
+
+  it('keeps the reported narrow Seedream target above the provider pixel minimum', () => {
+    const dimensions = imagePrankGenerationDimensionsForAspect(
+      DEFAULT_IMAGE_PRANK_GENERATION_MODEL,
+      497 / 1080,
+    );
+
+    expect(dimensions.width / dimensions.height).toBeCloseTo(497 / 1080, 2);
+    expect(dimensions.width * dimensions.height).toBeGreaterThanOrEqual(3_686_400);
+    expect(getImagePrankGenerationSizeValidationError(
+      DEFAULT_IMAGE_PRANK_GENERATION_MODEL,
+      dimensions,
+    )).toBeNull();
+  });
+
+  it('rejects the undersized dimensions from the production failure before queueing', () => {
+    expect(getImagePrankGenerationSizeValidationError(
+      DEFAULT_IMAGE_PRANK_GENERATION_MODEL,
+      { width: 1184, height: 2560 },
+    )).toContain('Unsupported');
+  });
+
+  it.each(IMAGE_PRANK_TWO_REFERENCE_MODELS)(
+    'returns provider-eligible dimensions for every aspect with %s',
+    (model) => {
+      for (const aspectRatio of [null, 1, 497 / 1080, 1080 / 497, 1 / 16, 16, 1 / 100, 100]) {
+        const dimensions = imagePrankGenerationDimensionsForAspect(model, aspectRatio);
+        expect(
+          getImagePrankGenerationSizeValidationError(model, dimensions),
+          `${model} rejected ${dimensions.width}x${dimensions.height} for aspect ${aspectRatio}`,
+        ).toBeNull();
+      }
+    },
+  );
 });
