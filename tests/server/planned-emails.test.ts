@@ -13,7 +13,7 @@ const prismaMock = vi.hoisted(() => ({
   $transaction: vi.fn(),
 }));
 
-const resendSendMock = vi.hoisted(() => vi.fn());
+const plunkSendMock = vi.hoisted(() => vi.fn());
 const shouldQueueFollowUp24hEmailMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/db', () => ({
@@ -22,17 +22,13 @@ vi.mock('@/server/db', () => ({
 
 vi.mock('@/server/config', () => ({
   config: {
-    RESEND_FROM_EMAIL: 'YumCut <hello@app.yumcut.com>',
+    PLUNK_FROM_EMAIL: 'YumCut <hello@app.yumcut.com>',
     NEXTAUTH_SECRET: 'test-secret-for-reply-bonus',
   },
 }));
 
-vi.mock('@/server/emails/resend', () => ({
-  getResendClient: () => ({
-    emails: {
-      send: resendSendMock,
-    },
-  }),
+vi.mock('@/server/emails/plunk', () => ({
+  sendPlunkEmail: plunkSendMock,
 }));
 
 vi.mock('@/server/admin/emails', () => ({
@@ -86,7 +82,7 @@ describe('planned emails localization', () => {
     prismaMock.plannedEmail.createMany.mockResolvedValue({ count: 2 });
     prismaMock.plannedEmail.deleteMany.mockResolvedValue({ count: 1 });
     prismaMock.plannedEmail.updateMany.mockResolvedValue({ count: 1 });
-    resendSendMock.mockResolvedValue({ data: { id: 're_test_1' } });
+    plunkSendMock.mockResolvedValue({ ok: true, id: 'plunk_test_1' });
     shouldQueueFollowUp24hEmailMock.mockResolvedValue(true);
   });
 
@@ -183,11 +179,11 @@ describe('planned emails localization', () => {
       skipped: 0,
     });
 
-    expect(resendSendMock).toHaveBeenCalledWith(
+    expect(plunkSendMock).toHaveBeenCalledWith(
       expect.objectContaining({
         subject: 'Иван, личное сообщение',
         text: expect.stringContaining('здравствуйте, Иван!'),
-        replyTo: [expect.stringMatching(/^rb\+user-1\.[a-f0-9]{16}@app\.yumcut\.com$/)],
+        replyTo: expect.stringMatching(/^rb\+user-1\.[a-f0-9]{16}@app\.yumcut\.com$/),
       }),
     );
 
@@ -216,14 +212,14 @@ describe('planned emails localization', () => {
 
     await processPlannedEmails({ limit: 10 });
 
-    expect(resendSendMock).toHaveBeenCalledWith(
+    expect(plunkSendMock).toHaveBeenCalledWith(
       expect.objectContaining({
         subject: 'личное сообщение',
         text: expect.stringContaining('здравствуйте!'),
       }),
     );
 
-    expect(resendSendMock).toHaveBeenCalledWith(
+    expect(plunkSendMock).toHaveBeenCalledWith(
       expect.objectContaining({
         text: expect.not.stringContaining('друг'),
       }),
@@ -245,7 +241,7 @@ describe('planned emails localization', () => {
 
     await processPlannedEmails({ limit: 10 });
 
-    expect(resendSendMock).toHaveBeenCalledWith(
+    expect(plunkSendMock).toHaveBeenCalledWith(
       expect.objectContaining({
         subject: 'personal message for Max',
         text: expect.stringMatching(/hey Max,[\s\S]*30 tokens/i),
@@ -280,14 +276,14 @@ describe('planned emails localization', () => {
     const result = await processPlannedEmails({ limit: 10 });
 
     expect(result.sent).toBe(1);
-    expect(resendSendMock).toHaveBeenCalledWith(
+    expect(plunkSendMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        to: ['user@example.com'],
+        to: 'user@example.com',
         subject: 'Manual admin notice',
         text: 'Plain text body from admin API.',
       }),
     );
-    expect(resendSendMock).toHaveBeenCalledWith(
+    expect(plunkSendMock).toHaveBeenCalledWith(
       expect.not.objectContaining({
         replyTo: expect.anything(),
       }),
@@ -318,7 +314,7 @@ describe('planned emails localization', () => {
       failed: 0,
       skipped: 1,
     });
-    expect(resendSendMock).not.toHaveBeenCalled();
+    expect(plunkSendMock).not.toHaveBeenCalled();
     expect(prismaMock.plannedEmail.deleteMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({

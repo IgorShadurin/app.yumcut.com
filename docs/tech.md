@@ -119,7 +119,7 @@ Key flags:
 - Main app always runs in UI mode; the storage worker is now a separate service. Configure `NEXT_PUBLIC_STORAGE_BASE_URL` / `STORAGE_PUBLIC_URL` to point at the storage host.
 - `STORAGE_ALLOWED_ORIGINS` controls which browser origins can POST to the storage uploader (comma-separated list).
 
-### Email Automation (Resend)
+### Email Automation (Plunk + inbound Resend)
 
 YumCut supports:
 - onboarding emails for new users (welcome immediately + follow-up after 24 hours),
@@ -127,11 +127,17 @@ YumCut supports:
 - inbound email webhook forwarding to Telegram admins.
 
 Required env variables:
-- `RESEND_API_KEY` - API key from Resend. Use a **Full access** key if you process inbound emails (`email.received`) so `emails.receiving.get` can retrieve message bodies.
-- `RESEND_FROM_EMAIL` - verified sender (example: `YumCut <support@yumcut.com>`).
-- `RESEND_AUDIENCE_ID` - optional audience/list id for syncing app users into Resend contacts. If omitted and the account has exactly one audience, the app uses that audience automatically.
-- `RESEND_WEBHOOK_SECRET` - webhook signing secret from Resend.
+- `PLUNK_API_URL` - self-hosted Plunk API base URL (`https://mail-api.copymyui.com`).
+- `PLUNK_SECRET_KEY` - YumCut project secret from Plunk.
+- `PLUNK_FROM_EMAIL` - verified sender (example: `YumCut <support@yumcut.com>`).
+- `PLUNK_PREFERENCES_URL` - branded subscription-preferences origin (`https://mail.yumcut.com`). Marketing mail uses this domain for both one-click unsubscribe headers and visible preference links.
+- `RESEND_API_KEY` - retained only for legacy inbound email retrieval. Use a **Full access** key if processing `email.received` so `emails.receiving.get` can retrieve message bodies.
+- `RESEND_WEBHOOK_SECRET` - retained for verification of inbound Resend webhooks.
 - `SERVICE_API_PASSWORD` - required for protected cron endpoint auth (`x-service-password` header).
+
+New users are synchronized into Plunk contacts without changing an existing contact's subscription state. Account deletion removes the matching Plunk contact. Onboarding, follow-up, win-back, and manual broadcast messages honor the Plunk subscription state; project lifecycle and reply-bonus confirmations remain transactional.
+
+`npm run emails:migrate:resend-to-plunk` previews the Resend-recipient migration. Add `-- --apply` to upsert the contacts. The migration never re-sends historical messages, never re-subscribes an existing Plunk contact, and marks addresses with bounce, complaint, or suppression history as unsubscribed.
 
 Cron processing endpoint (requires `x-service-password` header with `SERVICE_API_PASSWORD`):
 - `GET https://app.yumcut.com/api/cron/planned-emails`

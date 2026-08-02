@@ -3,7 +3,7 @@ import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { prisma } from '@/server/db';
 import { config } from '@/server/config';
-import { getResendClient } from '@/server/emails/resend';
+import { sendPlunkEmail } from '@/server/emails/plunk';
 import { TOKEN_COSTS } from '@/shared/constants/token-costs';
 import { shouldQueueFollowUp24hEmail } from '@/server/admin/emails';
 
@@ -201,11 +201,14 @@ async function resolveTargetLanguageForUser(userId: string, languageHint?: strin
 }
 
 function parseConfiguredFromEmailAddress() {
-  return normalizeEmail(config.RESEND_FROM_EMAIL?.trim() ?? null);
+  return normalizeEmail(config.PLUNK_FROM_EMAIL?.trim() ?? null);
 }
 
 function getReplyBonusSigningSecret() {
-  return config.NEXTAUTH_SECRET?.trim() || config.RESEND_WEBHOOK_SECRET?.trim() || null;
+  return config.NEXTAUTH_SECRET?.trim()
+    || config.RESEND_WEBHOOK_SECRET?.trim()
+    || config.PLUNK_SECRET_KEY?.trim()
+    || null;
 }
 
 export function buildReplyBonusReplyToAddress(userId: string): string | null {
@@ -257,43 +260,38 @@ export function parseReplyBonusReplyToAddress(addresses: string[]): { userId: st
   return null;
 }
 
-async function sendPlainTextEmail(params: { to: string; subject: string; text: string; replyTo?: string | null }): Promise<SendResult> {
-  const from = config.RESEND_FROM_EMAIL?.trim();
-  if (!from) {
-    return {
-      ok: false,
-      error: 'RESEND_FROM_EMAIL is not configured.',
-    };
-  }
+async function sendPlainTextEmail(params: {
+  to: string;
+  subject: string;
+  text: string;
+  replyTo?: string | null;
+  marketing?: boolean;
+  idempotencyKey?: string;
+}): Promise<SendResult> {
+  const response = await sendPlunkEmail({
+    to: params.to,
+    subject: params.subject,
+    text: params.text,
+    replyTo: params.replyTo,
+    marketing: params.marketing,
+    idempotencyKey: params.idempotencyKey,
+    data: { source: 'app.yumcut.com' },
+  });
 
-  try {
-    const resend = getResendClient();
-    const response = await resend.emails.send({
-      from,
-      to: [params.to],
-      ...(params.replyTo ? { replyTo: [params.replyTo] } : {}),
-      subject: params.subject,
-      text: params.text,
-    });
+  return {
+    ok: response.ok,
+    ...(response.id ? { id: response.id } : {}),
+    ...(response.error ? { error: response.error } : {}),
+  };
+}
 
-    const responseError = (response as any)?.error;
-    if (responseError) {
-      return {
-        ok: false,
-        error: typeof responseError?.message === 'string' ? responseError.message : JSON.stringify(responseError),
-      };
-    }
-
-    return {
-      ok: true,
-      id: (response as any)?.data?.id,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      error: stringifyError(error),
-    };
-  }
+function isMarketingEmailKind(kind: string): boolean {
+  return ![
+    EMAIL_KIND_REPLY_BONUS_CONFIRMED,
+    EMAIL_KIND_PROJECT_CREATED,
+    EMAIL_KIND_PROJECT_READY,
+    EMAIL_KIND_PROJECT_FAILED,
+  ].includes(kind);
 }
 
 function makeTemplateVariables(params: {
@@ -324,6 +322,7 @@ export async function sendLocalizedPlainTextEmail(params: {
   name?: string | null;
   replyTo?: string | null;
   variables?: Record<string, string>;
+  idempotencyKey?: string;
 }): Promise<LocalizedEmailSendResult> {
   const languageHint = parseLanguage(params.languageHint) ?? DEFAULT_EMAIL_LANGUAGE;
 
@@ -340,6 +339,8 @@ export async function sendLocalizedPlainTextEmail(params: {
       subject: fillTemplate(template.subjectTemplate, variables),
       text: fillTemplate(template.textTemplate, variables),
       replyTo: params.replyTo,
+      marketing: isMarketingEmailKind(params.kind),
+      idempotencyKey: params.idempotencyKey,
     });
 
     return {
@@ -536,6 +537,8 @@ export async function processPlannedEmails(options: ProcessPlannedEmailsOptions 
           to: planned.email,
           subject: planned.subject,
           text: planned.text,
+          marketing: true,
+          idempotencyKey: planned.id,
         });
       } else {
         const replyTo = planned.kind === EMAIL_KIND_WELCOME || planned.kind === EMAIL_KIND_FOLLOW_UP_24H
@@ -548,6 +551,7 @@ export async function processPlannedEmails(options: ProcessPlannedEmailsOptions 
           languageHint,
           name: planned.user?.name,
           replyTo,
+          idempotencyKey: planned.id,
         });
         resolvedLanguage = localizedResult.language ?? resolvedLanguage;
         sendResult = localizedResult;

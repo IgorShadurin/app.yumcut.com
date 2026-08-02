@@ -5,8 +5,6 @@ import { Resend } from 'resend';
 
 dotenv.config({ path: path.join(process.cwd(), '.env') });
 
-const HARDCODED_FROM = 'YumCut <support@yumcut.com>';
-
 type CliArgs = {
   emailId: string;
   text: string;
@@ -54,8 +52,8 @@ function parseCliArgs(argv: string[]): CliArgs {
   }
 
   if (!emailId || !text) {
-    console.error('Usage: npm run answer-resend -- <email-id> "<text>"');
-    console.error('   or: npm run answer-resend -- --id=<email-id> --text="<text>"');
+    console.error('Usage: npm run answer-email -- <email-id> "<text>"');
+    console.error('   or: npm run answer-email -- --id=<email-id> --text="<text>"');
     process.exit(1);
   }
 
@@ -100,6 +98,7 @@ function appendReference(base: string | null, messageId: string | null | undefin
 }
 
 async function main() {
+  const { sendPlunkEmail } = await import('../src/server/emails/plunk');
   const { emailId, text } = parseCliArgs(process.argv.slice(2));
   const apiKey = (process.env.RESEND_FULL_ACCESS || process.env.RESEND_API_KEY || '').trim();
 
@@ -126,24 +125,24 @@ async function main() {
     inReplyTo,
   );
 
-  const sendResult = await resend.emails.send({
-    from: HARDCODED_FROM,
-    to: [replyTo],
+  const sendResult = await sendPlunkEmail({
+    to: replyTo,
     subject,
     text,
+    marketing: false,
     headers: {
       ...(inReplyTo ? { 'In-Reply-To': inReplyTo } : {}),
       ...(references ? { References: references } : {}),
     },
   });
 
-  if (sendResult.error || !sendResult.data?.id) {
-    throw new Error(sendResult.error?.message || 'Failed to send');
+  if (!sendResult.ok || !sendResult.id) {
+    throw new Error(sendResult.error || 'Failed to send');
   }
 
   console.log(JSON.stringify({
     ok: true,
-    id: sendResult.data.id,
+    id: sendResult.id,
     messageId: emailId,
   }));
 }

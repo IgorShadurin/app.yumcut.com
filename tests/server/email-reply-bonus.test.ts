@@ -21,18 +21,10 @@ vi.mock('@/server/tokens', () => ({
 
 vi.mock('@/server/config', () => ({
   config: {
-    RESEND_FROM_EMAIL: 'YumCut <hello@app.yumcut.com>',
+    PLUNK_FROM_EMAIL: 'YumCut <hello@app.yumcut.com>',
     NEXTAUTH_SECRET: 'test-secret-for-reply-bonus',
     RESEND_WEBHOOK_SECRET: 'whsec_test',
   },
-}));
-
-vi.mock('@/server/emails/resend', () => ({
-  getResendClient: () => ({
-    emails: {
-      send: vi.fn(),
-    },
-  }),
 }));
 
 vi.mock('@/server/emails/planned', async () => {

@@ -5,7 +5,7 @@ import { revokeAppleTokens } from '@/server/apple/revoke-tokens';
 import { notifyAdminsOfAccountDeletion } from '@/server/telegram';
 import { deleteStoredMedia } from '@/server/storage';
 import { cancelPlannedEmailsForUser } from '@/server/emails/planned';
-import { removeUserFromResendContactsInBackground } from '@/server/emails/resend-contacts';
+import { removeUserFromPlunkContactsInBackground } from '@/server/emails/plunk-contacts';
 import {
   cancelStripeSubscriptionForAccountDeletion,
   type StripeAccountDeletionCancellationResult,
@@ -173,7 +173,7 @@ export async function deleteUserAccount(options: DeleteUserAccountOptions): Prom
     console.error('Failed to notify admins about account deletion', { userId, err });
   });
 
-  removeUserFromResendContactsInBackground({
+  removeUserFromPlunkContactsInBackground({
     userId,
     email: existingUser.email,
   }, 'account-deleted');

@@ -19,7 +19,7 @@ const deleteStoredMedia = vi.fn();
 const notifyAdminsOfAccountDeletion = vi.fn().mockResolvedValue(undefined);
 const revokeAppleTokens = vi.fn();
 const cancelStripeSubscriptionForAccountDeletion = vi.fn();
-const removeUserFromResendContactsInBackground = vi.fn();
+const removeUserFromPlunkContactsInBackground = vi.fn();
 
 function createTransactionMock() {
   return {
@@ -66,7 +66,7 @@ vi.mock('@/server/storage', () => ({ deleteStoredMedia }));
 vi.mock('@/server/telegram', () => ({ notifyAdminsOfAccountDeletion }));
 vi.mock('@/server/apple/revoke-tokens', () => ({ revokeAppleTokens }));
 vi.mock('@/server/stripe/subscriptions', () => ({ cancelStripeSubscriptionForAccountDeletion }));
-vi.mock('@/server/emails/resend-contacts', () => ({ removeUserFromResendContactsInBackground }));
+vi.mock('@/server/emails/plunk-contacts', () => ({ removeUserFromPlunkContactsInBackground }));
 
 const { deleteUserAccount } = await import('@/server/account/delete-user');
 
@@ -90,7 +90,7 @@ beforeEach(() => {
     ok: true,
     action: 'no_stripe_subscription',
   });
-  removeUserFromResendContactsInBackground.mockReset();
+  removeUserFromPlunkContactsInBackground.mockReset();
 });
 
 describe('deleteUserAccount', () => {
@@ -102,7 +102,7 @@ describe('deleteUserAccount', () => {
 
     expect(tx.projectTemplateImage.deleteMany).toHaveBeenCalledWith({ where: { project: { userId: 'user-1' } } });
     expect(tx.plannedEmail.deleteMany).toHaveBeenCalledWith({ where: { userId: 'user-1' } });
-    expect(removeUserFromResendContactsInBackground).toHaveBeenCalledWith(
+    expect(removeUserFromPlunkContactsInBackground).toHaveBeenCalledWith(
       { userId: 'user-1', email: 'user@example.com' },
       'account-deleted',
     );
