@@ -119,7 +119,7 @@ Key flags:
 - Main app always runs in UI mode; the storage worker is now a separate service. Configure `NEXT_PUBLIC_STORAGE_BASE_URL` / `STORAGE_PUBLIC_URL` to point at the storage host.
 - `STORAGE_ALLOWED_ORIGINS` controls which browser origins can POST to the storage uploader (comma-separated list).
 
-### Email Automation (Plunk + inbound Resend)
+### Email Automation (switchable Plunk / Resend delivery)
 
 YumCut supports:
 - onboarding emails for new users (welcome immediately + follow-up after 24 hours),
@@ -127,15 +127,24 @@ YumCut supports:
 - inbound email webhook forwarding to Telegram admins.
 
 Required env variables:
+- `EMAIL_SEND_PROVIDER` - `plunk` or `resend`. The cron and immediate send paths read this same value, so scheduled mail cannot accidentally use another provider.
 - `PLUNK_API_URL` - self-hosted Plunk API base URL (`https://mail-api.copymyui.com`).
 - `PLUNK_SECRET_KEY` - YumCut project secret from Plunk.
 - `PLUNK_FROM_EMAIL` - verified sender (example: `YumCut <support@yumcut.com>`).
 - `PLUNK_PREFERENCES_URL` - branded subscription-preferences origin (`https://mail.yumcut.com`). Marketing mail uses this domain for both one-click unsubscribe headers and visible preference links.
-- `RESEND_API_KEY` - retained only for legacy inbound email retrieval. Use a **Full access** key if processing `email.received` so `emails.receiving.get` can retrieve message bodies.
+- `RESEND_API_KEY` - Resend API key. Use a **Full access** key to provision the marketing Automation and to retrieve inbound message bodies.
+- `RESEND_FROM_EMAIL` - verified Resend sender.
+- `RESEND_MARKETING_REPLY_TO_EMAIL` - fixed Automation reply address; it must be handled by the inbound webhook for reply bonuses.
+- `RESEND_MARKETING_EVENT_NAME` - event used by the app and Automation (default `yumcut.marketing.email.v1`).
 - `RESEND_WEBHOOK_SECRET` - retained for verification of inbound Resend webhooks.
 - `SERVICE_API_PASSWORD` - required for protected cron endpoint auth (`x-service-password` header).
 
-New users are synchronized into Plunk contacts without changing an existing contact's subscription state. Account deletion removes the matching Plunk contact. Onboarding, follow-up, win-back, and manual broadcast messages honor the Plunk subscription state; project lifecycle and reply-bonus confirmations remain transactional.
+New users are synchronized into Plunk contacts without changing an existing contact's subscription state, regardless of the selected delivery provider. Account deletion removes the matching Plunk contact.
+
+Provider behavior:
+- `plunk`: onboarding, follow-up, win-back, and manual messages use Plunk subscription state and branded links under `PLUNK_PREFERENCES_URL`.
+- `resend`: those marketing messages trigger a Resend Automation whose template contains `{{{RESEND_UNSUBSCRIBE_URL}}}`. Resend owns the resulting `unsubscribe.resend.com` URL and suppression state. Run `npm run emails:resend:provision` once after configuring the Resend variables, and again after changing the sender or reply-to address.
+- project lifecycle and reply-bonus confirmation messages are transactional with either provider, and therefore do not contain a marketing unsubscribe footer.
 
 `npm run emails:migrate:resend-to-plunk` previews the Resend-recipient migration. Add `-- --apply` to upsert the contacts. The migration never re-sends historical messages, never re-subscribes an existing Plunk contact, and marks addresses with bounce, complaint, or suppression history as unsubscribed.
 

@@ -3,6 +3,8 @@ import { grantTokens, makeSystemInitiator } from '@/server/tokens';
 import { TOKEN_COSTS, TOKEN_TRANSACTION_TYPES } from '@/shared/constants/token-costs';
 import {
   EMAIL_KIND_REPLY_BONUS_CONFIRMED,
+  EMAIL_KIND_WELCOME,
+  isResendMarketingReplyAddress,
   normalizeEmail,
   parseReplyBonusReplyToAddress,
   sendLocalizedPlainTextEmail,
@@ -43,7 +45,8 @@ export async function processInboundReplyBonus(input: {
   }
 
   const recipientMatch = parseReplyBonusReplyToAddress(input.to);
-  if (!recipientMatch) {
+  const matchesResendMarketingReply = isResendMarketingReplyAddress(input.to);
+  if (!recipientMatch && !matchesResendMarketingReply) {
     return {
       eligible: false,
       granted: false,
@@ -54,7 +57,7 @@ export async function processInboundReplyBonus(input: {
   }
 
   const user = await prisma.user.findUnique({
-    where: { id: recipientMatch.userId },
+    where: recipientMatch ? { id: recipientMatch.userId } : { email: senderEmail },
     select: {
       id: true,
       email: true,
@@ -62,6 +65,15 @@ export async function processInboundReplyBonus(input: {
       preferredLanguage: true,
       deleted: true,
       emailReplyBonusGrantedAt: true,
+      ...(!recipientMatch && matchesResendMarketingReply
+        ? {
+            plannedEmails: {
+              where: { kind: EMAIL_KIND_WELCOME, status: 'sent' },
+              select: { id: true },
+              take: 1,
+            },
+          }
+        : {}),
     },
   });
 
@@ -71,8 +83,19 @@ export async function processInboundReplyBonus(input: {
       granted: false,
       alreadyGranted: false,
       userMatched: false,
-      userId: recipientMatch.userId,
+      ...(recipientMatch ? { userId: recipientMatch.userId } : {}),
       reason: 'user_not_found',
+    };
+  }
+
+  if (!recipientMatch && !('plannedEmails' in user && user.plannedEmails.length > 0)) {
+    return {
+      eligible: false,
+      granted: false,
+      alreadyGranted: false,
+      userMatched: true,
+      userId: user.id,
+      reason: 'no_signed_recipient',
     };
   }
 

@@ -27,8 +27,9 @@ vi.mock('@/server/config', () => ({
   },
 }));
 
-vi.mock('@/server/emails/plunk', () => ({
-  sendPlunkEmail: plunkSendMock,
+vi.mock('@/server/emails/outbound', () => ({
+  getEmailSendProvider: () => 'plunk',
+  sendOutboundEmail: plunkSendMock,
 }));
 
 vi.mock('@/server/admin/emails', () => ({

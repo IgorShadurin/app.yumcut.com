@@ -3,7 +3,7 @@ import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { prisma } from '@/server/db';
 import { config } from '@/server/config';
-import { sendPlunkEmail } from '@/server/emails/plunk';
+import { getEmailSendProvider, sendOutboundEmail } from '@/server/emails/outbound';
 import { TOKEN_COSTS } from '@/shared/constants/token-costs';
 import { shouldQueueFollowUp24hEmail } from '@/server/admin/emails';
 
@@ -201,7 +201,10 @@ async function resolveTargetLanguageForUser(userId: string, languageHint?: strin
 }
 
 function parseConfiguredFromEmailAddress() {
-  return normalizeEmail(config.PLUNK_FROM_EMAIL?.trim() ?? null);
+  const configured = getEmailSendProvider() === 'resend'
+    ? (config.RESEND_MARKETING_REPLY_TO_EMAIL?.trim() || config.RESEND_FROM_EMAIL?.trim())
+    : config.PLUNK_FROM_EMAIL?.trim();
+  return normalizeEmail(configured ?? null);
 }
 
 function getReplyBonusSigningSecret() {
@@ -216,6 +219,10 @@ export function buildReplyBonusReplyToAddress(userId: string): string | null {
   const secret = getReplyBonusSigningSecret();
   if (!fromEmail || !secret) return null;
 
+  if (getEmailSendProvider() === 'resend') {
+    return fromEmail;
+  }
+
   const domain = fromEmail.split('@')[1];
   if (!domain) return null;
 
@@ -226,6 +233,13 @@ export function buildReplyBonusReplyToAddress(userId: string): string | null {
     .slice(0, REPLY_BONUS_SIGNATURE_LENGTH);
 
   return `${REPLY_BONUS_ALIAS_PREFIX}+${userId}.${signature}@${domain}`;
+}
+
+export function isResendMarketingReplyAddress(addresses: string[]): boolean {
+  if (getEmailSendProvider() !== 'resend') return false;
+  const configured = parseConfiguredFromEmailAddress();
+  if (!configured) return false;
+  return addresses.some((address) => normalizeEmail(address) === configured);
 }
 
 export function parseReplyBonusReplyToAddress(addresses: string[]): { userId: string } | null {
@@ -268,21 +282,14 @@ async function sendPlainTextEmail(params: {
   marketing?: boolean;
   idempotencyKey?: string;
 }): Promise<SendResult> {
-  const response = await sendPlunkEmail({
+  return sendOutboundEmail({
     to: params.to,
     subject: params.subject,
     text: params.text,
     replyTo: params.replyTo,
     marketing: params.marketing,
     idempotencyKey: params.idempotencyKey,
-    data: { source: 'app.yumcut.com' },
   });
-
-  return {
-    ok: response.ok,
-    ...(response.id ? { id: response.id } : {}),
-    ...(response.error ? { error: response.error } : {}),
-  };
 }
 
 function isMarketingEmailKind(kind: string): boolean {
