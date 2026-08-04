@@ -31,7 +31,7 @@ import { normalizeTemplateCustomData, type TemplateCustomData } from '@/shared/t
 import { getAdminVoiceProviderSettings } from '@/server/admin/voice-providers';
 import { buildVoiceProviderSet } from '@/shared/constants/voice-providers';
 import { getProjectCreationSettings } from '@/server/admin/project-creation';
-import { sendImageProjectCreatedEmail, sendProjectCreatedEmail } from '@/server/emails/project-lifecycle';
+import { sendProjectCreatedEmail } from '@/server/emails/project-lifecycle';
 import { normalizeProjectExperience } from '@/shared/constants/project-experience';
 import { normalizeContentTone } from '@/shared/constants/content-tone';
 import { defaultCharacterVideoGeneration } from '@/shared/constants/video-generation';
@@ -1073,7 +1073,7 @@ async function createImageGenerationProject(params: {
     console.error('Failed to notify admins about new image project', err);
   });
 
-  sendImageProjectCreatedEmail({
+  sendProjectCreatedEmail({
     userId: params.userId,
     email: ownerEmail,
     name: ownerName,
@@ -1082,7 +1082,7 @@ async function createImageGenerationProject(params: {
     projectTitle: project.title,
     projectEmailsEnabled: dbUser?.settings?.projectEmailsEnabled ?? true,
   }).catch((err) => {
-    console.error('Failed to send image project created email', err);
+    console.error('Failed to send project created email', err);
   });
 
   const trunc = (t: string) => (t.length > 30 ? t.slice(0, 27) + '...' : t);

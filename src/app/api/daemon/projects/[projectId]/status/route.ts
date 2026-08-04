@@ -12,13 +12,7 @@ import { normalizeLanguageList, DEFAULT_LANGUAGE } from '@/shared/constants/lang
 import { storeTemplateImageMetadata } from '@/server/projects/helpers';
 import { TOKEN_TRANSACTION_TYPES } from '@/shared/constants/token-costs';
 import { PROJECT_RELATED_TOKEN_TYPES, extractProjectIdFromTokenMetadata, toUsedTokensFromDelta } from '@/server/admin/token-usage';
-import { normalizeMediaUrl } from '@/server/storage';
-import {
-  sendImageProjectReadyEmail,
-  sendProjectFailedEmail,
-  sendProjectReadyEmail,
-} from '@/server/emails/project-lifecycle';
-import { normalizeProjectExperience } from '@/shared/constants/project-experience';
+import { sendProjectFailedEmail, sendProjectReadyEmail } from '@/server/emails/project-lifecycle';
 
 type Params = { projectId: string };
 
@@ -221,23 +215,11 @@ export const POST = withApiError(async function POST(req: NextRequest, { params 
 
   if (status === ProjectStatus.Done && previousStatus !== ProjectStatus.Done) {
     try {
-      const initialJob = (prisma as any).job?.findFirst
-        ? await (prisma as any).job.findFirst({
-            where: { projectId },
-            orderBy: { createdAt: 'asc' },
-            select: { payload: true },
-          })
-        : null;
-      const isImageGeneration = normalizeProjectExperience(
-        (initialJob?.payload as any)?.projectExperience,
-      ) === 'image-generation';
       const updatedProject = await prisma.project.findUnique({
         where: { id: projectId },
         select: {
           id: true,
           title: true,
-          finalVideoUrl: true,
-          finalVideoPath: true,
           user: {
             select: {
               id: true,
@@ -252,26 +234,6 @@ export const POST = withApiError(async function POST(req: NextRequest, { params 
         },
       });
 
-      if (isImageGeneration) {
-        if (updatedProject?.user) {
-          await sendImageProjectReadyEmail({
-            userId: updatedProject.user.id,
-            email: updatedProject.user.email,
-            name: updatedProject.user.name,
-            preferredLanguage: updatedProject.user.preferredLanguage,
-            projectId: updatedProject.id,
-            projectTitle: updatedProject.title,
-            projectEmailsEnabled: updatedProject.user.settings?.projectEmailsEnabled ?? true,
-          });
-        }
-        return ok({ ok: true });
-      }
-
-      const videoFromExtra = pickFinalVideoUrlFromStatusExtra(extra, normalizedLanguages);
-      const finalVideoUrl = updatedProject
-        ? (updatedProject.finalVideoUrl || normalizeMediaUrl(updatedProject.finalVideoPath) || videoFromExtra)
-        : videoFromExtra;
-
       if (updatedProject?.user) {
         await sendProjectReadyEmail({
           userId: updatedProject.user.id,
@@ -280,7 +242,6 @@ export const POST = withApiError(async function POST(req: NextRequest, { params 
           preferredLanguage: updatedProject.user.preferredLanguage,
           projectId: updatedProject.id,
           projectTitle: updatedProject.title,
-          finalVideoUrl,
           projectEmailsEnabled: updatedProject.user.settings?.projectEmailsEnabled ?? true,
         });
       }
@@ -352,23 +313,6 @@ function shouldNotifyStatus(status: ProjectStatus, extra: unknown, languages: st
     default:
       return true;
   }
-}
-
-function pickFinalVideoUrlFromStatusExtra(extra: unknown, languages: string[]): string | null {
-  const payload = extra as Record<string, unknown> | undefined;
-  if (!payload) return null;
-  const direct = typeof payload.finalVideoUrl === 'string' ? payload.finalVideoUrl.trim() : '';
-  if (direct) return direct;
-
-  const map = payload.finalVideoPaths;
-  if (!map || typeof map !== 'object') return null;
-  const record = map as Record<string, string>;
-  for (const language of languages) {
-    const value = typeof record[language] === 'string' ? record[language].trim() : '';
-    if (value) return value;
-  }
-  const fallback = Object.values(record).find((value) => typeof value === 'string' && value.trim().length > 0);
-  return typeof fallback === 'string' ? fallback : null;
 }
 
 function normalizeTemplateImageMetadata(entries: TemplateImageMetadataInput[]): NormalizedTemplateImageMetadata[] {

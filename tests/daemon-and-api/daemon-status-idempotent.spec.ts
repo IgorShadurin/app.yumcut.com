@@ -90,7 +90,6 @@ describe('daemon status lock release', () => {
     vi.doMock('@/server/auth', () => ({ assertDaemonAuth: async () => 'daemon-1' }));
     vi.doMock('@/server/telegram', () => ({ notifyProjectStatusChange: vi.fn(async () => {}) }));
     vi.doMock('@/server/emails/project-lifecycle', () => ({
-      sendImageProjectReadyEmail: vi.fn(async () => {}),
       sendProjectFailedEmail: vi.fn(async () => {}),
       sendProjectReadyEmail: vi.fn(async () => {}),
     }));

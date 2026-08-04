@@ -6,5 +6,4 @@ You created a new project in YumCut.
 Project: {{project_url}}
 Title: {{project_title}}
 
-It usually takes about {{ready_eta}} to finish.
-You will receive one more email when the final video is ready.
+You will receive another email when the project is ready.

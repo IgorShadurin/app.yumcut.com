@@ -1,9 +1,6 @@
 import { prisma } from '@/server/db';
 import { config } from '@/server/config';
-import { normalizeMediaUrl } from '@/server/storage';
 import {
-  EMAIL_KIND_IMAGE_PROJECT_CREATED,
-  EMAIL_KIND_IMAGE_PROJECT_READY,
   EMAIL_KIND_PROJECT_CREATED,
   EMAIL_KIND_PROJECT_FAILED,
   EMAIL_KIND_PROJECT_READY,
@@ -26,10 +23,6 @@ type BaseProjectEmailInput = {
   projectId: string;
   projectTitle?: string | null;
   projectEmailsEnabled?: boolean | null;
-};
-
-type ProjectReadyEmailInput = BaseProjectEmailInput & {
-  finalVideoUrl?: string | null;
 };
 
 type ProjectFailedEmailInput = BaseProjectEmailInput & {
@@ -77,8 +70,6 @@ export async function sendProjectCreatedEmail(input: BaseProjectEmailInput): Pro
     variables: {
       project_title: (input.projectTitle || '').trim(),
       project_url: projectUrl,
-      ready_eta: '30+ minutes',
-      ready_eta_ru: '30+ минут',
     },
   });
 
@@ -89,41 +80,7 @@ export async function sendProjectCreatedEmail(input: BaseProjectEmailInput): Pro
   };
 }
 
-export async function sendImageProjectCreatedEmail(input: BaseProjectEmailInput): Promise<EmailResult> {
-  const to = normalizeEmail(input.email);
-  if (!to) {
-    return { sent: false, skipped: true, reason: 'invalid-email' };
-  }
-
-  const enabled = await resolveProjectEmailsEnabled(input);
-  if (!enabled) {
-    return { sent: false, skipped: true, reason: 'disabled-by-user' };
-  }
-
-  const result = await sendLocalizedPlainTextEmail({
-    to,
-    kind: EMAIL_KIND_IMAGE_PROJECT_CREATED,
-    languageHint: input.preferredLanguage,
-    name: input.name,
-    variables: {
-      project_title: (input.projectTitle || '').trim(),
-      project_url: buildProjectUrl(input.projectId),
-    },
-  });
-
-  return {
-    sent: result.ok,
-    skipped: false,
-    error: result.ok ? null : (result.error ?? 'Unknown email send error'),
-  };
-}
-
-function resolveFinalVideoUrl(value: string | null | undefined): string {
-  if (!value) return '';
-  return normalizeMediaUrl(value) ?? value;
-}
-
-export async function sendProjectReadyEmail(input: ProjectReadyEmailInput): Promise<EmailResult> {
+export async function sendProjectReadyEmail(input: BaseProjectEmailInput): Promise<EmailResult> {
   const to = normalizeEmail(input.email);
   if (!to) {
     return { sent: false, skipped: true, reason: 'invalid-email' };
@@ -135,7 +92,6 @@ export async function sendProjectReadyEmail(input: ProjectReadyEmailInput): Prom
   }
 
   const projectUrl = buildProjectUrl(input.projectId);
-  const finalVideoUrl = resolveFinalVideoUrl(input.finalVideoUrl);
   const result = await sendLocalizedPlainTextEmail({
     to,
     kind: EMAIL_KIND_PROJECT_READY,
@@ -144,36 +100,6 @@ export async function sendProjectReadyEmail(input: ProjectReadyEmailInput): Prom
     variables: {
       project_title: (input.projectTitle || '').trim(),
       project_url: projectUrl,
-      final_video_url: finalVideoUrl,
-    },
-  });
-
-  return {
-    sent: result.ok,
-    skipped: false,
-    error: result.ok ? null : (result.error ?? 'Unknown email send error'),
-  };
-}
-
-export async function sendImageProjectReadyEmail(input: BaseProjectEmailInput): Promise<EmailResult> {
-  const to = normalizeEmail(input.email);
-  if (!to) {
-    return { sent: false, skipped: true, reason: 'invalid-email' };
-  }
-
-  const enabled = await resolveProjectEmailsEnabled(input);
-  if (!enabled) {
-    return { sent: false, skipped: true, reason: 'disabled-by-user' };
-  }
-
-  const result = await sendLocalizedPlainTextEmail({
-    to,
-    kind: EMAIL_KIND_IMAGE_PROJECT_READY,
-    languageHint: input.preferredLanguage,
-    name: input.name,
-    variables: {
-      project_title: (input.projectTitle || '').trim(),
-      project_url: buildProjectUrl(input.projectId),
     },
   });
 

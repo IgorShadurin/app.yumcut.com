@@ -22,8 +22,6 @@ vi.mock('@/server/storage', () => ({
 }));
 
 vi.mock('@/server/emails/planned', () => ({
-  EMAIL_KIND_IMAGE_PROJECT_CREATED: 'image_project_created_v1',
-  EMAIL_KIND_IMAGE_PROJECT_READY: 'image_project_ready_v1',
   EMAIL_KIND_PROJECT_CREATED: 'project_created_v1',
   EMAIL_KIND_PROJECT_READY: 'project_ready_v1',
   EMAIL_KIND_PROJECT_FAILED: 'project_failed_v1',
@@ -77,17 +75,6 @@ describe('project lifecycle emails', () => {
       userId: 'user-1',
       email: 'user@example.com',
       projectId: 'project-1',
-      finalVideoUrl: 'https://cdn.example.com/final.mp4',
-    });
-    const imageCreated = await mod.sendImageProjectCreatedEmail({
-      userId: 'user-1',
-      email: 'user@example.com',
-      projectId: 'project-1',
-    });
-    const imageReady = await mod.sendImageProjectReadyEmail({
-      userId: 'user-1',
-      email: 'user@example.com',
-      projectId: 'project-1',
     });
     const failed = await mod.sendProjectFailedEmail({
       userId: 'user-1',
@@ -98,49 +85,11 @@ describe('project lifecycle emails', () => {
 
     expect(created).toEqual({ sent: false, skipped: true, reason: 'disabled-by-user' });
     expect(ready).toEqual({ sent: false, skipped: true, reason: 'disabled-by-user' });
-    expect(imageCreated).toEqual({ sent: false, skipped: true, reason: 'disabled-by-user' });
-    expect(imageReady).toEqual({ sent: false, skipped: true, reason: 'disabled-by-user' });
     expect(failed).toEqual({ sent: false, skipped: true, reason: 'disabled-by-user' });
     expect(sendLocalizedPlainTextEmail).not.toHaveBeenCalled();
   });
 
-  it('uses image-specific templates for image project lifecycle emails', async () => {
-    const mod = await import('@/server/emails/project-lifecycle');
-
-    await mod.sendImageProjectCreatedEmail({
-      userId: 'user-1',
-      email: 'user@example.com',
-      name: 'Dmitry',
-      preferredLanguage: 'en',
-      projectId: 'image-project-1',
-      projectTitle: 'Image Prank',
-    });
-    await mod.sendImageProjectReadyEmail({
-      userId: 'user-1',
-      email: 'user@example.com',
-      name: 'Dmitry',
-      preferredLanguage: 'en',
-      projectId: 'image-project-1',
-      projectTitle: 'Image Prank',
-    });
-
-    expect(sendLocalizedPlainTextEmail).toHaveBeenNthCalledWith(1, expect.objectContaining({
-      kind: 'image_project_created_v1',
-      variables: {
-        project_title: 'Image Prank',
-        project_url: 'https://app.yumcut.com/project/image-project-1',
-      },
-    }));
-    expect(sendLocalizedPlainTextEmail).toHaveBeenNthCalledWith(2, expect.objectContaining({
-      kind: 'image_project_ready_v1',
-      variables: {
-        project_title: 'Image Prank',
-        project_url: 'https://app.yumcut.com/project/image-project-1',
-      },
-    }));
-  });
-
-  it('includes final video url in project ready email', async () => {
+  it('includes only the project link and title in project ready email', async () => {
     const mod = await import('@/server/emails/project-lifecycle');
     const result = await mod.sendProjectReadyEmail({
       userId: 'user-1',
@@ -148,7 +97,6 @@ describe('project lifecycle emails', () => {
       name: 'Dmitry',
       preferredLanguage: 'ru',
       projectId: 'project-2',
-      finalVideoUrl: 'https://cdn.example.com/final.mp4',
     });
 
     expect(result).toEqual({ sent: true, skipped: false, error: null });
@@ -156,9 +104,12 @@ describe('project lifecycle emails', () => {
       kind: 'project_ready_v1',
       variables: expect.objectContaining({
         project_url: 'https://app.yumcut.com/project/project-2',
-        final_video_url: 'https://cdn.example.com/final.mp4',
       }),
     }));
+    expect(sendLocalizedPlainTextEmail.mock.calls[0]?.[0]?.variables).toEqual({
+      project_title: '',
+      project_url: 'https://app.yumcut.com/project/project-2',
+    });
   });
 
   it('includes refund amount in project failed email', async () => {

@@ -65,7 +65,6 @@ export const POST = withApiError(async function POST(req: NextRequest, { params 
             preferredLanguage: owner.preferredLanguage,
             projectId: project.id,
             projectTitle: project.title,
-            finalVideoUrl: path,
             projectEmailsEnabled: owner.settings?.projectEmailsEnabled ?? true,
           });
         }

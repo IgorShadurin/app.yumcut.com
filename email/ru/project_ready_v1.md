@@ -4,4 +4,4 @@
 
 Ваш проект в YumCut готов.
 Проект: {{project_url}}
-Финальное видео: {{final_video_url}}
+Название: {{project_title}}

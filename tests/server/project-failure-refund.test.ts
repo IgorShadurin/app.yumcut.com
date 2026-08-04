@@ -16,9 +16,7 @@ const userUpdate = vi.hoisted(() => vi.fn());
 const assertDaemonAuth = vi.hoisted(() => vi.fn());
 const notifyProjectStatusChange = vi.hoisted(() => vi.fn());
 const sendProjectReadyEmail = vi.hoisted(() => vi.fn());
-const sendImageProjectReadyEmail = vi.hoisted(() => vi.fn());
 const sendProjectFailedEmail = vi.hoisted(() => vi.fn());
-const jobFindFirst = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/db', () => ({
   prisma: {
@@ -30,9 +28,6 @@ vi.mock('@/server/db', () => ({
     },
     imageAsset: {
       findMany: imageAssetFindMany,
-    },
-    job: {
-      findFirst: jobFindFirst,
     },
     $transaction: transaction,
   },
@@ -47,7 +42,6 @@ vi.mock('@/server/telegram', () => ({
 }));
 
 vi.mock('@/server/emails/project-lifecycle', () => ({
-  sendImageProjectReadyEmail,
   sendProjectReadyEmail,
   sendProjectFailedEmail,
 }));
@@ -79,9 +73,7 @@ describe('daemon status token refunds on project failure', () => {
     userUpdate.mockResolvedValue({});
     notifyProjectStatusChange.mockResolvedValue(undefined);
     sendProjectReadyEmail.mockResolvedValue({ sent: true, skipped: false, error: null });
-    sendImageProjectReadyEmail.mockResolvedValue({ sent: true, skipped: false, error: null });
     sendProjectFailedEmail.mockResolvedValue({ sent: true, skipped: false, error: null });
-    jobFindFirst.mockResolvedValue(null);
     transaction.mockImplementation(async (callback: any) => callback({
       project: { update: projectUpdate, updateMany: projectUpdateMany },
       audioCandidate: { updateMany: vi.fn(), findUnique: vi.fn() },
@@ -240,7 +232,6 @@ describe('daemon status token refunds on project failure', () => {
       userId: 'user-1',
       email: 'user@example.com',
       projectId: 'project-1',
-      finalVideoUrl: 'https://cdn.example.com/final.mp4',
     }));
   });
 
@@ -266,7 +257,7 @@ describe('daemon status token refunds on project failure', () => {
     expect(sendProjectReadyEmail).not.toHaveBeenCalled();
   });
 
-  it('sends an image-ready email when an image project transitions to done', async () => {
+  it('sends the general project-ready email when an image project transitions to done', async () => {
     projectFindFirst.mockResolvedValueOnce({
       id: 'project-1',
       userId: 'user-1',
@@ -275,7 +266,6 @@ describe('daemon status token refunds on project failure', () => {
       deleted: false,
       languages: ['en'],
     });
-    jobFindFirst.mockResolvedValueOnce({ payload: { projectExperience: 'image-generation' } });
     projectFindUnique.mockResolvedValueOnce({
       id: 'project-1',
       title: 'Image Prank',
@@ -298,13 +288,12 @@ describe('daemon status token refunds on project failure', () => {
 
     const res = await route.POST(req, { params: Promise.resolve({ projectId: 'project-1' }) });
     expect(res.status).toBe(200);
-    expect(sendImageProjectReadyEmail).toHaveBeenCalledWith(expect.objectContaining({
+    expect(sendProjectReadyEmail).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'user-1',
       email: 'user@example.com',
       projectId: 'project-1',
       projectTitle: 'Image Prank',
     }));
-    expect(sendProjectReadyEmail).not.toHaveBeenCalled();
   });
 
   it('returns not found for deleted projects and performs no writes', async () => {

@@ -25,7 +25,6 @@ const spendTokensMock = vi.hoisted(() => vi.fn());
 const validateProjectStateMock = vi.hoisted(() => vi.fn());
 const notifyAdminsOfNewProjectMock = vi.hoisted(() => vi.fn());
 const sendProjectCreatedEmailMock = vi.hoisted(() => vi.fn());
-const sendImageProjectCreatedEmailMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/db', () => ({ prisma: prismaMock }));
 vi.mock('@/server/api-user', () => ({ authenticateApiRequest: authenticateApiRequestMock }));
@@ -42,10 +41,7 @@ vi.mock('@/server/tokens', () => ({
 }));
 vi.mock('@/shared/projects', () => ({ validateProjectState: validateProjectStateMock }));
 vi.mock('@/server/telegram', () => ({ notifyAdminsOfNewProject: notifyAdminsOfNewProjectMock }));
-vi.mock('@/server/emails/project-lifecycle', () => ({
-  sendProjectCreatedEmail: sendProjectCreatedEmailMock,
-  sendImageProjectCreatedEmail: sendImageProjectCreatedEmailMock,
-}));
+vi.mock('@/server/emails/project-lifecycle', () => ({ sendProjectCreatedEmail: sendProjectCreatedEmailMock }));
 
 describe('project creation from character slug', () => {
   beforeEach(() => {
@@ -63,7 +59,6 @@ describe('project creation from character slug', () => {
     spendTokensMock.mockResolvedValue(undefined);
     notifyAdminsOfNewProjectMock.mockResolvedValue(undefined);
     sendProjectCreatedEmailMock.mockResolvedValue(undefined);
-    sendImageProjectCreatedEmailMock.mockResolvedValue(undefined);
 
     prismaMock.user.findUnique.mockResolvedValue({
       name: 'User One',
@@ -223,7 +218,7 @@ describe('project creation from character slug', () => {
         }),
       }),
     }));
-    expect(sendImageProjectCreatedEmailMock).toHaveBeenCalledWith(expect.objectContaining({
+    expect(sendProjectCreatedEmailMock).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'user-1',
       email: 'test@example.com',
       projectId: 'project-image-1',
