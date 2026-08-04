@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { withApiError } from '@/server/errors';
 import { forbidden, ok } from '@/server/http';
 import { config } from '@/server/config';
-import { suppressPostalFailureInPlunk, verifyPostalWebhook } from '@/server/emails/postal';
+import { recordPostalWebhook, verifyPostalWebhook } from '@/server/emails/postal';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -18,10 +18,11 @@ export const POST = withApiError(async function POST(req: NextRequest) {
     return forbidden('Invalid Postal webhook signature');
   }
 
-  const result = await suppressPostalFailureInPlunk(envelope);
+  const result = await recordPostalWebhook(envelope);
   return ok({
     ok: true,
     event: envelope.event ?? null,
     handled: result.handled,
+    duplicate: result.duplicate ?? false,
   });
 }, 'Failed to process Postal webhook');

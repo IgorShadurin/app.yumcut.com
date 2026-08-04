@@ -21,7 +21,7 @@ vi.mock('@/server/tokens', () => ({
 
 vi.mock('@/server/config', () => ({
   config: {
-    PLUNK_FROM_EMAIL: 'YumCut <hello@app.yumcut.com>',
+    POSTAL_FROM_EMAIL: 'YumCut <hello@app.yumcut.com>',
     NEXTAUTH_SECRET: 'test-secret-for-reply-bonus',
     RESEND_WEBHOOK_SECRET: 'whsec_test',
   },

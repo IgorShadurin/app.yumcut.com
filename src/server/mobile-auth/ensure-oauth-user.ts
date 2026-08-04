@@ -4,7 +4,7 @@ import { notifyAdminsOfNewUser } from '@/server/telegram';
 import { reactivateDeletedUser } from '@/server/account/reactivate-user';
 import { grantConfiguredSignUpBonus } from '@/server/account/sign-up-bonus';
 import { scheduleUserOnboardingEmails } from '@/server/emails/planned';
-import { addUserToPlunkContactsInBackground } from '@/server/emails/plunk-contacts';
+import { addUserToEmailContactsInBackground } from '@/server/emails/contacts';
 
 export type OAuthProfile = {
   providerAccountId: string;
@@ -167,7 +167,7 @@ async function afterUserCreated(
   }).catch((err) => {
     console.error('Failed to schedule onboarding emails for new mobile user', err);
   });
-  addUserToPlunkContactsInBackground({
+  addUserToEmailContactsInBackground({
     userId: user.id,
     email: user.email,
     name,

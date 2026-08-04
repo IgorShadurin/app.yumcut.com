@@ -44,7 +44,7 @@ export function renderEmailContent(input: {
   }
 
   if (!input.contactId || !input.preferencesOrigin) {
-    throw new Error('Marketing email requires a Plunk contact and preferences URL.');
+    throw new Error('Marketing email requires a local contact token and preferences URL.');
   }
 
   const { manageUrl, unsubscribeUrl } = preferencesLinks(input.preferencesOrigin, input.contactId);

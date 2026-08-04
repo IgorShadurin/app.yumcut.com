@@ -98,7 +98,7 @@ function appendReference(base: string | null, messageId: string | null | undefin
 }
 
 async function main() {
-  const { sendPlunkEmail } = await import('../src/server/emails/plunk');
+  const { sendPostalEmail } = await import('../src/server/emails/postal');
   const { emailId, text } = parseCliArgs(process.argv.slice(2));
   const apiKey = (process.env.RESEND_FULL_ACCESS || process.env.RESEND_API_KEY || '').trim();
 
@@ -125,7 +125,7 @@ async function main() {
     inReplyTo,
   );
 
-  const sendResult = await sendPlunkEmail({
+  const sendResult = await sendPostalEmail({
     to: replyTo,
     subject,
     text,

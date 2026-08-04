@@ -1,9 +1,9 @@
 import { config } from '@/server/config';
-import { sendPlunkEmail, upsertPlunkContact } from '@/server/emails/plunk';
 import { sendResendEmail } from '@/server/emails/resend';
 import { sendPostalEmail } from '@/server/emails/postal';
+import { ensureEmailContact } from '@/server/emails/contacts';
 
-export type EmailSendProvider = 'plunk' | 'postal' | 'resend';
+export type EmailSendProvider = 'postal' | 'resend';
 
 export type SendOutboundEmailInput = {
   to: string;
@@ -18,24 +18,24 @@ export type OutboundEmailSendResult = {
   ok: boolean;
   id?: string;
   error?: string;
+  skipped?: boolean;
+  reason?: 'unsubscribed' | 'suppressed';
 };
 
 export function getEmailSendProvider(): EmailSendProvider {
   if (config.EMAIL_SEND_PROVIDER === 'resend') return 'resend';
-  if (config.EMAIL_SEND_PROVIDER === 'postal') return 'postal';
-  return 'plunk';
+  return 'postal';
 }
 
-async function syncPlunkContactWithoutBlockingSend(email: string): Promise<void> {
-  if (!config.PLUNK_SECRET_KEY?.trim()) return;
-
+async function syncLocalContactWithoutBlockingResend(email: string): Promise<void> {
   try {
-    await upsertPlunkContact({
+    await ensureEmailContact({
       email,
-      data: { source: 'app.yumcut.com' },
+      subscribedOnCreate: false,
+      consentSource: 'resend-delivery',
     });
   } catch (error) {
-    console.error('Failed to synchronize outbound recipient with Plunk', {
+    console.error('Failed to synchronize Resend recipient with local email contacts', {
       email,
       error: error instanceof Error ? error.message : String(error),
     });
@@ -45,22 +45,9 @@ async function syncPlunkContactWithoutBlockingSend(email: string): Promise<void>
 export async function sendOutboundEmail(input: SendOutboundEmailInput): Promise<OutboundEmailSendResult> {
   const provider = getEmailSendProvider();
   if (provider === 'resend') {
-    await syncPlunkContactWithoutBlockingSend(input.to);
+    await syncLocalContactWithoutBlockingResend(input.to);
     return sendResendEmail(input);
   }
 
-  if (provider === 'postal') {
-    return sendPostalEmail(input);
-  }
-
-  const response = await sendPlunkEmail({
-    ...input,
-    data: { source: 'app.yumcut.com' },
-  });
-
-  return {
-    ok: response.ok,
-    ...(response.id ? { id: response.id } : {}),
-    ...(response.error ? { error: response.error } : {}),
-  };
+  return sendPostalEmail(input);
 }

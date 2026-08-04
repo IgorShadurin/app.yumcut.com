@@ -1,7 +1,13 @@
-import { config } from '@/server/config';
-import { renderEmailContent } from '@/server/emails/content';
-import { upsertPlunkContact } from '@/server/emails/plunk';
 import crypto from 'node:crypto';
+import { Prisma } from '@prisma/client';
+import { config } from '@/server/config';
+import { prisma } from '@/server/db';
+import { renderEmailContent } from '@/server/emails/content';
+import {
+  ensureEmailContact,
+  normalizeEmailContactAddress,
+  suppressEmailContact,
+} from '@/server/emails/contacts';
 
 const DEFAULT_PREFERENCES_URL = 'https://mail.yumcut.com';
 
@@ -12,6 +18,7 @@ export type SendPostalEmailInput = {
   replyTo?: string | null;
   marketing?: boolean;
   idempotencyKey?: string;
+  headers?: Record<string, string>;
 };
 
 export type PostalSendResult = {
@@ -19,17 +26,12 @@ export type PostalSendResult = {
   id?: string;
   error?: string;
   skipped?: boolean;
-  reason?: 'unsubscribed';
+  reason?: 'unsubscribed' | 'suppressed';
 };
 
 type PostalResponse = {
   status?: 'success' | 'error';
-  data?: {
-    message_id?: string;
-    code?: string;
-    message?: string;
-    messages?: Record<string, { id?: number; token?: string }>;
-  };
+  data?: { message_id?: string; code?: string; message?: string };
 };
 
 export type PostalWebhookEnvelope = {
@@ -37,8 +39,9 @@ export type PostalWebhookEnvelope = {
   timestamp?: number;
   uuid?: string;
   payload?: {
-    message?: { to?: string };
-    original_message?: { to?: string };
+    message?: { id?: number | string; to?: string };
+    original_message?: { id?: number | string; to?: string };
+    details?: string;
   };
 };
 
@@ -61,7 +64,7 @@ function sendEndpoint(): string {
 }
 
 function preferencesUrl(): string {
-  return (config.PLUNK_PREFERENCES_URL?.trim() || DEFAULT_PREFERENCES_URL).replace(/\/$/, '');
+  return (config.EMAIL_PREFERENCES_URL?.trim() || DEFAULT_PREFERENCES_URL).replace(/\/$/, '');
 }
 
 function assertMailbox(value: string, label: string): string {
@@ -74,15 +77,26 @@ function assertMailbox(value: string, label: string): string {
   return trimmed;
 }
 
+function mailboxAddress(value: string): string {
+  return value.match(/^\s*(?:[^<>]+\s*)?<([^<>\s]+@[^<>\s]+)>\s*$/)?.[1] ?? value;
+}
+
 function stringifyError(error: unknown): string {
   return (error instanceof Error ? error.message : String(error)).slice(0, 4_000);
+}
+
+function validatedHeaders(headers?: Record<string, string>): Record<string, string> {
+  if (!headers) return {};
+  return Object.fromEntries(Object.entries(headers).map(([name, value]) => {
+    if (!/^[A-Za-z0-9-]+$/.test(name) || /[\r\n]/.test(value)) throw new Error('Postal custom header is invalid.');
+    return [name, value];
+  }));
 }
 
 function webhookPublicKey(): string {
   const configured = config.POSTAL_WEBHOOK_PUBLIC_KEY?.trim();
   if (!configured) throw new Error('POSTAL_WEBHOOK_PUBLIC_KEY is not configured.');
   if (configured.includes('BEGIN PUBLIC KEY')) return configured.replace(/\\n/g, '\n');
-
   const decoded = Buffer.from(configured, 'base64').toString('utf8').trim();
   if (!decoded.includes('BEGIN PUBLIC KEY')) {
     throw new Error('POSTAL_WEBHOOK_PUBLIC_KEY must be PEM text or base64-encoded PEM text.');
@@ -93,61 +107,57 @@ function webhookPublicKey(): string {
 export function verifyPostalWebhook(rawBody: string, headers: Headers): PostalWebhookEnvelope | null {
   const signature = headers.get('x-postal-signature-256');
   if (!signature) return null;
-
   try {
-    const valid = crypto.verify(
-      'RSA-SHA256',
-      Buffer.from(rawBody),
-      webhookPublicKey(),
-      Buffer.from(signature, 'base64'),
-    );
-    if (!valid) return null;
+    if (!crypto.verify('RSA-SHA256', Buffer.from(rawBody), webhookPublicKey(), Buffer.from(signature, 'base64'))) {
+      return null;
+    }
     return JSON.parse(rawBody) as PostalWebhookEnvelope;
   } catch {
     return null;
   }
 }
 
-export async function suppressPostalFailureInPlunk(envelope: PostalWebhookEnvelope): Promise<{
+export async function recordPostalWebhook(envelope: PostalWebhookEnvelope): Promise<{
   handled: boolean;
-  email?: string;
+  duplicate?: boolean;
 }> {
-  if (!['MessageBounced', 'MessageDeliveryFailed'].includes(envelope.event ?? '')) {
-    return { handled: false };
-  }
+  const event = envelope.event?.trim() || 'Unknown';
+  const providerEventId = envelope.uuid?.trim();
+  if (!providerEventId) return { handled: false };
 
-  const email = envelope.event === 'MessageBounced'
-    ? envelope.payload?.original_message?.to?.trim().toLowerCase()
-    : envelope.payload?.message?.to?.trim().toLowerCase();
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return { handled: false };
-  }
+  const rawRecipient = event === 'MessageBounced'
+    ? envelope.payload?.original_message?.to
+    : envelope.payload?.message?.to;
+  const recipient = normalizeEmailContactAddress(rawRecipient);
+  const rawMessageId = envelope.payload?.message?.id ?? envelope.payload?.original_message?.id;
+  const messageId = rawMessageId === undefined ? null : String(rawMessageId).slice(0, 191);
+  const details = envelope.payload?.details?.trim().slice(0, 512) || null;
 
-  await upsertPlunkContact({
-    email,
-    subscribed: false,
-    data: {
-      source: 'app.yumcut.com',
-      delivery_provider: 'postal',
-      suppression_reason: envelope.event,
-    },
-  });
-  return { handled: true, email };
-}
-
-async function syncTransactionalContact(email: string): Promise<void> {
-  if (!config.PLUNK_SECRET_KEY?.trim()) return;
   try {
-    await upsertPlunkContact({
-      email,
-      data: { source: 'app.yumcut.com', delivery_provider: 'postal' },
+    await prisma.emailDeliveryEvent.create({
+      data: {
+        provider: 'postal',
+        providerEventId,
+        eventType: event.slice(0, 64),
+        recipient,
+        messageId,
+        details,
+      },
     });
   } catch (error) {
-    console.error('Failed to synchronize Postal recipient with Plunk', {
-      email,
-      error: stringifyError(error),
-    });
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      if (recipient && ['MessageBounced', 'MessageDeliveryFailed'].includes(event)) {
+        await suppressEmailContact({ email: recipient, reason: event, details });
+      }
+      return { handled: true, duplicate: true };
+    }
+    throw error;
   }
+
+  if (recipient && ['MessageBounced', 'MessageDeliveryFailed'].includes(event)) {
+    await suppressEmailContact({ email: recipient, reason: event, details });
+  }
+  return { handled: true };
 }
 
 export async function sendPostalEmail(input: SendPostalEmailInput): Promise<PostalSendResult> {
@@ -155,46 +165,38 @@ export async function sendPostalEmail(input: SendPostalEmailInput): Promise<Post
 
   try {
     const to = assertMailbox(input.to, 'Postal recipient');
+    const recipient = mailboxAddress(to).toLowerCase();
     const from = assertMailbox(requiredConfig('POSTAL_FROM_EMAIL'), 'POSTAL_FROM_EMAIL');
     const replyTo = input.replyTo ? assertMailbox(input.replyTo, 'Postal reply-to') : null;
-    if (/[\r\n]/.test(input.subject)) {
-      throw new Error('Postal subject contains an invalid line break.');
-    }
+    if (/[\r\n]/.test(input.subject)) throw new Error('Postal subject contains an invalid line break.');
 
-    let contactId: string | undefined;
-    if (marketing) {
-      if (!config.PLUNK_SECRET_KEY?.trim()) {
-        throw new Error('PLUNK_SECRET_KEY is required for Postal marketing consent and unsubscribe links.');
-      }
-      const contact = await upsertPlunkContact({
-        email: to,
-        data: { source: 'app.yumcut.com', delivery_provider: 'postal' },
-      });
-      contactId = contact.id;
-      if (!contact.subscribed) {
-        return { ok: true, skipped: true, reason: 'unsubscribed', id: contact.id };
-      }
-    } else {
-      await syncTransactionalContact(to);
+    const contact = await ensureEmailContact({
+      email: recipient,
+      subscribedOnCreate: false,
+      consentSource: marketing ? 'marketing-send' : 'transactional-send',
+    });
+    if (contact.suppressedAt) {
+      return { ok: true, skipped: true, reason: 'suppressed', id: contact.id };
+    }
+    if (marketing && !contact.marketingSubscribed) {
+      return { ok: true, skipped: true, reason: 'unsubscribed', id: contact.id };
     }
 
     const content = renderEmailContent({
       text: input.text,
       marketing,
-      contactId,
+      contactId: marketing ? contact.preferenceToken : undefined,
       preferencesOrigin: preferencesUrl(),
     });
     const headers = {
       ...content.headers,
+      ...validatedHeaders(input.headers),
       ...(input.idempotencyKey ? { 'X-YumCut-Idempotency-Key': input.idempotencyKey } : {}),
     };
 
     const response = await fetch(sendEndpoint(), {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Server-API-Key': requiredConfig('POSTAL_API_KEY'),
-      },
+      headers: { 'Content-Type': 'application/json', 'X-Server-API-Key': requiredConfig('POSTAL_API_KEY') },
       cache: 'no-store',
       signal: AbortSignal.timeout(30_000),
       body: JSON.stringify({
@@ -211,17 +213,11 @@ export async function sendPostalEmail(input: SendPostalEmailInput): Promise<Post
 
     const raw = await response.text();
     let parsed: PostalResponse | null = null;
-    try {
-      parsed = raw ? JSON.parse(raw) as PostalResponse : null;
-    } catch {
-      parsed = null;
-    }
-
+    try { parsed = raw ? JSON.parse(raw) as PostalResponse : null; } catch { parsed = null; }
     if (!response.ok || parsed?.status !== 'success' || !parsed.data?.message_id) {
       const detail = parsed?.data?.message || parsed?.data?.code || raw || `HTTP ${response.status}`;
       return { ok: false, error: `Postal send failed: ${String(detail).slice(0, 3_900)}` };
     }
-
     return { ok: true, id: parsed.data.message_id };
   } catch (error) {
     return { ok: false, error: stringifyError(error) };

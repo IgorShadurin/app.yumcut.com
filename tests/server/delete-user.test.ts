@@ -19,7 +19,6 @@ const deleteStoredMedia = vi.fn();
 const notifyAdminsOfAccountDeletion = vi.fn().mockResolvedValue(undefined);
 const revokeAppleTokens = vi.fn();
 const cancelStripeSubscriptionForAccountDeletion = vi.fn();
-const removeUserFromPlunkContactsInBackground = vi.fn();
 
 function createTransactionMock() {
   return {
@@ -49,6 +48,7 @@ function createTransactionMock() {
     templateVoiceStyle: { deleteMany: vi.fn() },
     templateMusic: { deleteMany: vi.fn() },
     plannedEmail: { deleteMany: vi.fn().mockResolvedValue({ count: 1 }) },
+    emailContact: { deleteMany: vi.fn().mockResolvedValue({ count: 1 }) },
     tokenTransaction: { deleteMany: vi.fn() },
     subscriptionPurchase: { deleteMany: vi.fn() },
     telegramLinkToken: { deleteMany: vi.fn() },
@@ -66,7 +66,6 @@ vi.mock('@/server/storage', () => ({ deleteStoredMedia }));
 vi.mock('@/server/telegram', () => ({ notifyAdminsOfAccountDeletion }));
 vi.mock('@/server/apple/revoke-tokens', () => ({ revokeAppleTokens }));
 vi.mock('@/server/stripe/subscriptions', () => ({ cancelStripeSubscriptionForAccountDeletion }));
-vi.mock('@/server/emails/plunk-contacts', () => ({ removeUserFromPlunkContactsInBackground }));
 
 const { deleteUserAccount } = await import('@/server/account/delete-user');
 
@@ -90,7 +89,6 @@ beforeEach(() => {
     ok: true,
     action: 'no_stripe_subscription',
   });
-  removeUserFromPlunkContactsInBackground.mockReset();
 });
 
 describe('deleteUserAccount', () => {
@@ -102,10 +100,7 @@ describe('deleteUserAccount', () => {
 
     expect(tx.projectTemplateImage.deleteMany).toHaveBeenCalledWith({ where: { project: { userId: 'user-1' } } });
     expect(tx.plannedEmail.deleteMany).toHaveBeenCalledWith({ where: { userId: 'user-1' } });
-    expect(removeUserFromPlunkContactsInBackground).toHaveBeenCalledWith(
-      { userId: 'user-1', email: 'user@example.com' },
-      'account-deleted',
-    );
+    expect(tx.emailContact.deleteMany).toHaveBeenCalledWith({ where: { userId: 'user-1' } });
   });
 
   it('deletes uploaded image assets from storage', async () => {

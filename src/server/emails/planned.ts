@@ -6,6 +6,7 @@ import { config } from '@/server/config';
 import { getEmailSendProvider, sendOutboundEmail } from '@/server/emails/outbound';
 import { TOKEN_COSTS } from '@/shared/constants/token-costs';
 import { shouldQueueFollowUp24hEmail } from '@/server/admin/emails';
+import { ensureEmailContact } from '@/server/emails/contacts';
 
 export const EMAIL_KIND_WELCOME = 'welcome_v1';
 export const EMAIL_KIND_FOLLOW_UP_24H = 'follow_up_24h_v1';
@@ -30,6 +31,8 @@ type SendResult = {
   ok: boolean;
   id?: string;
   error?: string;
+  skipped?: boolean;
+  reason?: 'unsubscribed' | 'suppressed';
 };
 
 export type LocalizedEmailSendResult = SendResult & {
@@ -203,9 +206,7 @@ async function resolveTargetLanguageForUser(userId: string, languageHint?: strin
 function parseConfiguredFromEmailAddress() {
   const configured = getEmailSendProvider() === 'resend'
     ? (config.RESEND_MARKETING_REPLY_TO_EMAIL?.trim() || config.RESEND_FROM_EMAIL?.trim())
-    : getEmailSendProvider() === 'postal'
-      ? config.POSTAL_FROM_EMAIL?.trim()
-      : config.PLUNK_FROM_EMAIL?.trim();
+    : config.POSTAL_FROM_EMAIL?.trim();
   return normalizeEmail(configured ?? null);
 }
 
@@ -213,7 +214,6 @@ function getReplyBonusSigningSecret() {
   return config.NEXTAUTH_SECRET?.trim()
     || config.RESEND_WEBHOOK_SECRET?.trim()
     || config.POSTAL_API_KEY?.trim()
-    || config.PLUNK_SECRET_KEY?.trim()
     || null;
 }
 
@@ -375,6 +375,14 @@ export async function queueUserOnboardingEmails(
   }
 
   const targetLanguage = await resolveTargetLanguageForUser(input.userId, input.targetLanguage);
+  await ensureEmailContact({
+    email,
+    userId: input.userId,
+    name: input.name,
+    preferredLanguage: targetLanguage,
+    subscribedOnCreate: true,
+    consentSource: 'user-registration',
+  });
   const now = new Date();
   const followUpAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
   const data: Array<{
@@ -571,6 +579,23 @@ export async function processPlannedEmails(options: ProcessPlannedEmailsOptions 
         ok: false,
         error: stringifyError(error),
       };
+    }
+
+    if (sendResult.ok && sendResult.skipped) {
+      const updated = await prisma.plannedEmail.updateMany({
+        where: { id: planned.id, lockId, status: 'pending' },
+        data: {
+          status: 'skipped',
+          targetLanguage: resolvedLanguage,
+          sentAt: null,
+          lastError: `Email skipped: ${sendResult.reason ?? 'suppressed'}`,
+          lockId: null,
+          lockedAt: null,
+          attempts: { increment: 1 },
+        },
+      });
+      result.skipped += updated.count;
+      continue;
     }
 
     if (sendResult.ok) {

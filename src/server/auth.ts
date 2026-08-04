@@ -10,7 +10,7 @@ import { createAppleClientSecret } from '@/server/apple/client-secret';
 import { reactivateDeletedUser } from '@/server/account/reactivate-user';
 import { grantConfiguredSignUpBonus } from '@/server/account/sign-up-bonus';
 import { scheduleUserOnboardingEmails } from '@/server/emails/planned';
-import { addUserToPlunkContactsInBackground } from '@/server/emails/plunk-contacts';
+import { addUserToEmailContactsInBackground } from '@/server/emails/contacts';
 import { cookies } from 'next/headers';
 import { readUtmSourceCookie, UTM_SOURCE_COOKIE_NAME } from '@/shared/utm/helpers';
 import { APP_LANGUAGE_HINT_COOKIE_NAME, readAppLanguageHintCookie } from '@/shared/constants/app-language';
@@ -216,7 +216,7 @@ export const authOptions: NextAuthOptions = {
          
         console.error('Failed to schedule onboarding emails for new user', err);
       });
-      addUserToPlunkContactsInBackground({
+      addUserToEmailContactsInBackground({
         userId: user.id,
         email: user.email,
         name: user.name,

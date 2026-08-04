@@ -13,7 +13,8 @@ const prismaMock = vi.hoisted(() => ({
   $transaction: vi.fn(),
 }));
 
-const plunkSendMock = vi.hoisted(() => vi.fn());
+const outboundSendMock = vi.hoisted(() => vi.fn());
+const ensureEmailContactMock = vi.hoisted(() => vi.fn());
 const shouldQueueFollowUp24hEmailMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/db', () => ({
@@ -22,14 +23,18 @@ vi.mock('@/server/db', () => ({
 
 vi.mock('@/server/config', () => ({
   config: {
-    PLUNK_FROM_EMAIL: 'YumCut <hello@app.yumcut.com>',
+    POSTAL_FROM_EMAIL: 'YumCut <hello@app.yumcut.com>',
     NEXTAUTH_SECRET: 'test-secret-for-reply-bonus',
   },
 }));
 
 vi.mock('@/server/emails/outbound', () => ({
-  getEmailSendProvider: () => 'plunk',
-  sendOutboundEmail: plunkSendMock,
+  getEmailSendProvider: () => 'postal',
+  sendOutboundEmail: outboundSendMock,
+}));
+
+vi.mock('@/server/emails/contacts', () => ({
+  ensureEmailContact: ensureEmailContactMock,
 }));
 
 vi.mock('@/server/admin/emails', () => ({
@@ -83,7 +88,8 @@ describe('planned emails localization', () => {
     prismaMock.plannedEmail.createMany.mockResolvedValue({ count: 2 });
     prismaMock.plannedEmail.deleteMany.mockResolvedValue({ count: 1 });
     prismaMock.plannedEmail.updateMany.mockResolvedValue({ count: 1 });
-    plunkSendMock.mockResolvedValue({ ok: true, id: 'plunk_test_1' });
+    outboundSendMock.mockResolvedValue({ ok: true, id: 'postal_test_1' });
+    ensureEmailContactMock.mockResolvedValue({ id: 'contact-1' });
     shouldQueueFollowUp24hEmailMock.mockResolvedValue(true);
   });
 
@@ -180,7 +186,7 @@ describe('planned emails localization', () => {
       skipped: 0,
     });
 
-    expect(plunkSendMock).toHaveBeenCalledWith(
+    expect(outboundSendMock).toHaveBeenCalledWith(
       expect.objectContaining({
         subject: 'Иван, личное сообщение',
         text: expect.stringContaining('здравствуйте, Иван!'),
@@ -213,14 +219,14 @@ describe('planned emails localization', () => {
 
     await processPlannedEmails({ limit: 10 });
 
-    expect(plunkSendMock).toHaveBeenCalledWith(
+    expect(outboundSendMock).toHaveBeenCalledWith(
       expect.objectContaining({
         subject: 'личное сообщение',
         text: expect.stringContaining('здравствуйте!'),
       }),
     );
 
-    expect(plunkSendMock).toHaveBeenCalledWith(
+    expect(outboundSendMock).toHaveBeenCalledWith(
       expect.objectContaining({
         text: expect.not.stringContaining('друг'),
       }),
@@ -242,7 +248,7 @@ describe('planned emails localization', () => {
 
     await processPlannedEmails({ limit: 10 });
 
-    expect(plunkSendMock).toHaveBeenCalledWith(
+    expect(outboundSendMock).toHaveBeenCalledWith(
       expect.objectContaining({
         subject: 'personal message for Max',
         text: expect.stringMatching(/hey Max,[\s\S]*30 tokens/i),
@@ -277,18 +283,39 @@ describe('planned emails localization', () => {
     const result = await processPlannedEmails({ limit: 10 });
 
     expect(result.sent).toBe(1);
-    expect(plunkSendMock).toHaveBeenCalledWith(
+    expect(outboundSendMock).toHaveBeenCalledWith(
       expect.objectContaining({
         to: 'user@example.com',
         subject: 'Manual admin notice',
         text: 'Plain text body from admin API.',
       }),
     );
-    expect(plunkSendMock).toHaveBeenCalledWith(
+    expect(outboundSendMock).toHaveBeenCalledWith(
       expect.not.objectContaining({
         replyTo: expect.anything(),
       }),
     );
+  });
+
+  it('marks an unsubscribed marketing delivery as skipped instead of sent', async () => {
+    mockClaimedEmails([{
+      id: 'planned-unsubscribed',
+      userId: 'user-unsubscribed',
+      email: 'user@example.com',
+      kind: 'welcome_v1',
+      attempts: 0,
+      targetLanguage: 'en',
+      user: { preferredLanguage: 'en', name: 'User', deleted: false },
+    }]);
+    outboundSendMock.mockResolvedValue({ ok: true, skipped: true, reason: 'unsubscribed', id: 'contact-1' });
+
+    const result = await processPlannedEmails({ limit: 10 });
+
+    expect(result.sent).toBe(0);
+    expect(result.skipped).toBe(1);
+    expect(prismaMock.plannedEmail.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ status: 'skipped', sentAt: null, lastError: 'Email skipped: unsubscribed' }),
+    }));
   });
 
   it('skips and removes claimed emails for deleted users', async () => {
@@ -315,7 +342,7 @@ describe('planned emails localization', () => {
       failed: 0,
       skipped: 1,
     });
-    expect(plunkSendMock).not.toHaveBeenCalled();
+    expect(outboundSendMock).not.toHaveBeenCalled();
     expect(prismaMock.plannedEmail.deleteMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({

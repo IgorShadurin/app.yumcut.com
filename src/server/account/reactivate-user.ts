@@ -1,5 +1,5 @@
 import { prisma } from '@/server/db';
-import { addUserToPlunkContactsInBackground } from '@/server/emails/plunk-contacts';
+import { addUserToEmailContactsInBackground } from '@/server/emails/contacts';
 
 export async function reactivateDeletedUser(userId: string): Promise<boolean> {
   const existing = await prisma.user.findUnique({
@@ -16,7 +16,7 @@ export async function reactivateDeletedUser(userId: string): Promise<boolean> {
       deletedAt: null,
     },
   });
-  addUserToPlunkContactsInBackground({
+  addUserToEmailContactsInBackground({
     userId,
     email: existing.email,
     name: existing.name,

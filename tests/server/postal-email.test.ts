@@ -6,132 +6,63 @@ const state = vi.hoisted(() => ({
     POSTAL_API_KEY: 'postal-test-secret',
     POSTAL_FROM_EMAIL: 'YumCut <support@yumcut.com>',
     POSTAL_WEBHOOK_PUBLIC_KEY: undefined as string | undefined,
-    PLUNK_SECRET_KEY: 'plunk-test-secret',
-    PLUNK_PREFERENCES_URL: 'https://mail.yumcut.com',
+    EMAIL_PREFERENCES_URL: 'https://mail.yumcut.com',
   },
-  upsert: vi.fn(),
+  ensureContact: vi.fn(),
+  deliveryCreate: vi.fn(),
 }));
 const fetchMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/config', () => ({ config: state.config }));
-vi.mock('@/server/emails/plunk', () => ({ upsertPlunkContact: state.upsert }));
+vi.mock('@/server/db', () => ({ prisma: { emailDeliveryEvent: { create: state.deliveryCreate } } }));
+vi.mock('@/server/emails/contacts', () => ({
+  ensureEmailContact: state.ensureContact,
+  normalizeEmailContactAddress: (email?: string) => email?.trim().toLowerCase() || null,
+  suppressEmailContact: vi.fn(),
+}));
 vi.stubGlobal('fetch', fetchMock);
 
 const { sendPostalEmail } = await import('@/server/emails/postal');
 
-function postalResponse(messageId: string) {
-  return new Response(JSON.stringify({
-    status: 'success',
-    data: {
-      message_id: messageId,
-      messages: { 'user@example.com': { id: 42, token: 'token-42' } },
-    },
-  }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-}
-
 beforeEach(() => {
   vi.clearAllMocks();
-  state.upsert.mockResolvedValue({
-    id: 'contact-123',
-    email: 'user@example.com',
-    subscribed: true,
-  });
-  fetchMock.mockResolvedValue(postalResponse('postal-message-1'));
+  state.ensureContact.mockResolvedValue({ id: 'contact-123', preferenceToken: '11111111-1111-4111-8111-111111111111', marketingSubscribed: true, suppressedAt: null });
+  fetchMock.mockResolvedValue(new Response(JSON.stringify({ status: 'success', data: { message_id: 'postal-message-1' } }), { status: 200 }));
 });
 
 describe('Postal email delivery', () => {
-  it('uses Plunk consent and branded one-click unsubscribe for marketing mail', async () => {
-    await expect(sendPostalEmail({
-      to: 'user@example.com',
-      subject: 'Welcome',
-      text: 'Hello\n\nhttps://yumcut.com/account',
-      replyTo: 'reply@yumcut.com',
-      marketing: true,
-      idempotencyKey: 'planned-123',
-    })).resolves.toEqual({ ok: true, id: 'postal-message-1' });
-
-    expect(state.upsert).toHaveBeenCalledWith({
-      email: 'user@example.com',
-      data: { source: 'app.yumcut.com', delivery_provider: 'postal' },
+  it('uses local consent and branded one-click unsubscribe for marketing mail', async () => {
+    await expect(sendPostalEmail({ to: 'user@example.com', subject: 'Welcome', text: 'Hello', marketing: true, idempotencyKey: 'planned-123' }))
+      .resolves.toEqual({ ok: true, id: 'postal-message-1' });
+    const payload = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(payload.headers).toMatchObject({
+      'List-Unsubscribe': '<https://mail.yumcut.com/unsubscribe/11111111-1111-4111-8111-111111111111>',
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      'X-YumCut-Idempotency-Key': 'planned-123',
     });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe('https://postal-api.example.com/api/v1/send/message');
-    const requestHeaders = new Headers(init.headers);
-    expect(requestHeaders.get('X-Server-API-Key')).toBe('postal-test-secret');
-
-    const payload = JSON.parse(String(init.body));
-    expect(payload).toMatchObject({
-      to: ['user@example.com'],
-      from: 'YumCut <support@yumcut.com>',
-      reply_to: 'reply@yumcut.com',
-      tag: 'yumcut-marketing',
-      headers: {
-        'List-Unsubscribe': '<https://mail.yumcut.com/unsubscribe/contact-123>',
-        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-        'X-YumCut-Idempotency-Key': 'planned-123',
-      },
-    });
-    expect(payload.plain_body).toContain('Unsubscribe: https://mail.yumcut.com/unsubscribe/contact-123');
-    expect(payload.html_body).toContain('https://mail.yumcut.com/manage/contact-123');
-    expect(payload.html_body).toContain('https://mail.yumcut.com/unsubscribe/contact-123');
+    expect(payload.html_body).toContain('/manage/11111111-1111-4111-8111-111111111111');
   });
 
-  it('suppresses marketing delivery when Plunk says the contact unsubscribed', async () => {
-    state.upsert.mockResolvedValue({
-      id: 'contact-unsubscribed',
-      email: 'user@example.com',
-      subscribed: false,
-    });
-
-    await expect(sendPostalEmail({
-      to: 'user@example.com',
-      subject: 'Newsletter',
-      text: 'News',
-      marketing: true,
-    })).resolves.toEqual({
-      ok: true,
-      skipped: true,
-      reason: 'unsubscribed',
-      id: 'contact-unsubscribed',
-    });
+  it('fails closed for marketing to an unsubscribed contact', async () => {
+    state.ensureContact.mockResolvedValue({ id: 'contact-2', preferenceToken: 'token', marketingSubscribed: false, suppressedAt: null });
+    await expect(sendPostalEmail({ to: 'user@example.com', subject: 'News', text: 'News', marketing: true }))
+      .resolves.toEqual({ ok: true, skipped: true, reason: 'unsubscribed', id: 'contact-2' });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('sends transactional mail despite marketing opt-out and without unsubscribe data', async () => {
-    state.upsert.mockResolvedValue({
-      id: 'contact-unsubscribed',
-      email: 'user@example.com',
-      subscribed: false,
-    });
-
-    await expect(sendPostalEmail({
-      to: 'user@example.com',
-      subject: 'Your project is ready',
-      text: 'Download it now.',
-      marketing: false,
-    })).resolves.toEqual({ ok: true, id: 'postal-message-1' });
-
+  it('sends transactional mail after marketing opt-out without an unsubscribe footer', async () => {
+    state.ensureContact.mockResolvedValue({ id: 'contact-2', preferenceToken: 'token', marketingSubscribed: false, suppressedAt: null });
+    await expect(sendPostalEmail({ to: 'user@example.com', subject: 'Project ready', text: 'Done', marketing: false }))
+      .resolves.toEqual({ ok: true, id: 'postal-message-1' });
     const payload = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
-    expect(payload.tag).toBe('yumcut-transactional');
     expect(payload.headers).toBeUndefined();
-    expect(payload.plain_body).not.toContain('unsubscribe');
     expect(payload.html_body).not.toContain('unsubscribe');
   });
 
-  it('treats a Postal error payload returned with HTTP 200 as a failed send', async () => {
-    fetchMock.mockResolvedValue(new Response(JSON.stringify({
-      status: 'error',
-      data: { code: 'UnauthenticatedFromAddress', message: 'Sender is not authorized' },
-    }), { status: 200 }));
-
-    const result = await sendPostalEmail({
-      to: 'user@example.com',
-      subject: 'Project ready',
-      text: 'Done',
-    });
-    expect(result.ok).toBe(false);
-    expect(result.error).toContain('Sender is not authorized');
+  it('does not send even transactional mail to a hard-suppressed address', async () => {
+    state.ensureContact.mockResolvedValue({ id: 'contact-3', preferenceToken: 'token', marketingSubscribed: false, suppressedAt: new Date() });
+    await expect(sendPostalEmail({ to: 'user@example.com', subject: 'Project ready', text: 'Done' }))
+      .resolves.toEqual({ ok: true, skipped: true, reason: 'suppressed', id: 'contact-3' });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

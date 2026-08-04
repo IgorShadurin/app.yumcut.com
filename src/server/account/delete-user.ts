@@ -5,7 +5,6 @@ import { revokeAppleTokens } from '@/server/apple/revoke-tokens';
 import { notifyAdminsOfAccountDeletion } from '@/server/telegram';
 import { deleteStoredMedia } from '@/server/storage';
 import { cancelPlannedEmailsForUser } from '@/server/emails/planned';
-import { removeUserFromPlunkContactsInBackground } from '@/server/emails/plunk-contacts';
 import {
   cancelStripeSubscriptionForAccountDeletion,
   type StripeAccountDeletionCancellationResult,
@@ -146,6 +145,7 @@ export async function deleteUserAccount(options: DeleteUserAccountOptions): Prom
     await tx.templateVoiceStyle.deleteMany({ where: { ownerId: userId } });
     await tx.templateMusic.deleteMany({ where: { ownerId: userId } });
     await cancelPlannedEmailsForUser(userId, tx);
+    await tx.emailContact.deleteMany({ where: { userId } });
 
     await tx.tokenTransaction.deleteMany({ where: { userId } });
     await tx.subscriptionPurchase.deleteMany({ where: { userId } });
@@ -172,11 +172,6 @@ export async function deleteUserAccount(options: DeleteUserAccountOptions): Prom
   }).catch((err) => {
     console.error('Failed to notify admins about account deletion', { userId, err });
   });
-
-  removeUserFromPlunkContactsInBackground({
-    userId,
-    email: existingUser.email,
-  }, 'account-deleted');
 
   return { alreadyDeleted: false, stripeCancellation };
 }

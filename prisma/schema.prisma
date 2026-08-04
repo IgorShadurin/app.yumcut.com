@@ -61,6 +61,7 @@ model User {
   createdAdminApiKeys                     AdminApiKey[]             @relation("AdminApiKeysCreated")
   revokedAdminApiKeys                     AdminApiKey[]             @relation("AdminApiKeysRevoked")
   inboundFeedbacks                        InboundFeedback[]
+  emailContacts                           EmailContact[]
 }
 
 model UserSettings {
@@ -745,6 +746,46 @@ model PlannedEmail {
   @@unique([userId, kind])
   @@index([status, scheduledAt])
   @@index([lockId, lockedAt])
+}
+
+model EmailContact {
+  id                    String    @id @default(uuid()) @db.Char(36)
+  audience              String    @default("yumcut") @db.VarChar(64)
+  email                 String    @db.VarChar(320)
+  userId                String?   @db.Char(36)
+  name                  String?   @db.VarChar(191)
+  preferredLanguage     String?   @db.VarChar(8)
+  marketingSubscribed   Boolean   @default(false)
+  subscribedAt          DateTime?
+  unsubscribedAt        DateTime?
+  consentSource         String?   @db.VarChar(64)
+  preferenceToken       String    @unique @default(uuid()) @db.Char(36)
+  legacyPreferenceToken String?   @unique @db.Char(36)
+  suppressedAt          DateTime?
+  suppressionReason     String?   @db.VarChar(64)
+  suppressionDetails    String?   @db.VarChar(512)
+  metadata              Json?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([audience, email])
+  @@index([userId])
+  @@index([audience, marketingSubscribed, suppressedAt])
+}
+
+model EmailDeliveryEvent {
+  id              String   @id @default(uuid()) @db.Char(36)
+  provider        String   @db.VarChar(32)
+  providerEventId String   @unique @db.VarChar(191)
+  eventType       String   @db.VarChar(64)
+  recipient       String?  @db.VarChar(320)
+  messageId       String?  @db.VarChar(255)
+  details         String?  @db.VarChar(1024)
+  createdAt       DateTime @default(now())
+
+  @@index([provider, eventType, createdAt])
+  @@index([recipient, createdAt])
 }
 
 model UserCharacterImageTask {
