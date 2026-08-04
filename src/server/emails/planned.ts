@@ -203,13 +203,16 @@ async function resolveTargetLanguageForUser(userId: string, languageHint?: strin
 function parseConfiguredFromEmailAddress() {
   const configured = getEmailSendProvider() === 'resend'
     ? (config.RESEND_MARKETING_REPLY_TO_EMAIL?.trim() || config.RESEND_FROM_EMAIL?.trim())
-    : config.PLUNK_FROM_EMAIL?.trim();
+    : getEmailSendProvider() === 'postal'
+      ? config.POSTAL_FROM_EMAIL?.trim()
+      : config.PLUNK_FROM_EMAIL?.trim();
   return normalizeEmail(configured ?? null);
 }
 
 function getReplyBonusSigningSecret() {
   return config.NEXTAUTH_SECRET?.trim()
     || config.RESEND_WEBHOOK_SECRET?.trim()
+    || config.POSTAL_API_KEY?.trim()
     || config.PLUNK_SECRET_KEY?.trim()
     || null;
 }

@@ -119,7 +119,7 @@ Key flags:
 - Main app always runs in UI mode; the storage worker is now a separate service. Configure `NEXT_PUBLIC_STORAGE_BASE_URL` / `STORAGE_PUBLIC_URL` to point at the storage host.
 - `STORAGE_ALLOWED_ORIGINS` controls which browser origins can POST to the storage uploader (comma-separated list).
 
-### Email Automation (switchable Plunk / Resend delivery)
+### Email Automation (switchable Plunk / Postal / Resend delivery)
 
 YumCut supports:
 - onboarding emails for new users (welcome immediately + follow-up after 24 hours),
@@ -127,11 +127,15 @@ YumCut supports:
 - inbound email webhook forwarding to Telegram admins.
 
 Required env variables:
-- `EMAIL_SEND_PROVIDER` - `plunk` or `resend`. The cron and immediate send paths read this same value, so scheduled mail cannot accidentally use another provider.
+- `EMAIL_SEND_PROVIDER` - `plunk`, `postal`, or `resend`. The cron and immediate send paths read this same value, so scheduled mail cannot accidentally use another provider.
 - `PLUNK_API_URL` - self-hosted Plunk API base URL (`https://mail-api.copymyui.com`).
 - `PLUNK_SECRET_KEY` - YumCut project secret from Plunk.
 - `PLUNK_FROM_EMAIL` - verified sender (example: `YumCut <support@yumcut.com>`).
 - `PLUNK_PREFERENCES_URL` - branded subscription-preferences origin (`https://mail.yumcut.com`). Marketing mail uses this domain for both one-click unsubscribe headers and visible preference links.
+- `POSTAL_API_URL` - HTTPS origin of the Postal API or the complete `/api/v1/send/message` endpoint.
+- `POSTAL_API_KEY` - server-scoped Postal API credential. Keep it in the deployment secret store and never expose it to the browser.
+- `POSTAL_FROM_EMAIL` - sender on a domain that is already verified in the same Postal mail server.
+- `POSTAL_WEBHOOK_PUBLIC_KEY` - Postal webhook RSA public key as PEM or base64-encoded PEM. It verifies `X-Postal-Signature-256` before a bounce can change contact state.
 - `RESEND_API_KEY` - Resend API key. Use a **Full access** key to provision the marketing Automation and to retrieve inbound message bodies.
 - `RESEND_FROM_EMAIL` - verified Resend sender.
 - `RESEND_MARKETING_REPLY_TO_EMAIL` - fixed Automation reply address; it must be handled by the inbound webhook for reply bonuses.
@@ -143,8 +147,18 @@ New users are synchronized into Plunk contacts without changing an existing cont
 
 Provider behavior:
 - `plunk`: onboarding, follow-up, win-back, and manual messages use Plunk subscription state and branded links under `PLUNK_PREFERENCES_URL`.
+- `postal`: the app checks the Plunk contact before each marketing send, then sends through Postal. Marketing messages contain a visible preference/unsubscribe footer plus RFC 8058 `List-Unsubscribe` and `List-Unsubscribe-Post` headers. Transactional messages ignore marketing opt-out and have neither header nor footer. Stock self-hosted Plunk still requires AWS SES, so Postal is called directly; only contacts, consent, and branded preference pages are synchronized with Plunk, not Postal delivery history.
 - `resend`: those marketing messages trigger a Resend Automation whose template contains `{{{RESEND_UNSUBSCRIBE_URL}}}`. Resend owns the resulting `unsubscribe.resend.com` URL and suppression state. Run `npm run emails:resend:provision` once after configuring the Resend variables, and again after changing the sender or reply-to address.
-- project lifecycle and reply-bonus confirmation messages are transactional with either provider, and therefore do not contain a marketing unsubscribe footer.
+- project lifecycle and reply-bonus confirmation messages are transactional with every provider, and therefore do not contain a marketing unsubscribe footer.
+
+Before selecting `postal` in production:
+1. Verify the sender domain in Postal and confirm SPF, DKIM, DMARC, return-path, PTR/rDNS, forward DNS, and outbound TLS. The visible `From` domain must align with SPF or DKIM for DMARC.
+2. Create a least-privilege server API credential and set the four `POSTAL_*` variables above. The API URL must be HTTPS and should expose only Postal's `/api/` path.
+3. Keep the `PLUNK_*` variables configured. Postal marketing fails closed if Plunk consent cannot be checked; transactional delivery still proceeds if contact synchronization is temporarily unavailable.
+4. Create a signed Postal webhook for `MessageBounced` and `MessageDeliveryFailed` at `POST https://app.yumcut.com/api/postal/webhook`. A verified event sets the matching Plunk contact to `subscribed=false`. Other Postal events are acknowledged without changing consent.
+5. Send one transactional and one consented marketing test to a mailbox where full headers can be inspected. Confirm SPF, DKIM, and DMARC pass; confirm both list-unsubscribe headers are covered by the DKIM `h=` list; then test the visible link and the mailbox provider's one-click action.
+
+The app adds a custom idempotency header for diagnosis, but Postal's stable API does not guarantee idempotent sends. The planned-email database lock prevents ordinary duplicate workers; an ambiguous network failure after Postal accepted a message can still result in a retry. Keep the send rate low during initial IP warm-up and monitor Postal's queue, bounces, delivery failures, and Gmail Postmaster spam rate.
 
 `npm run emails:migrate:resend-to-plunk` previews the Resend-recipient migration. Add `-- --apply` to upsert the contacts. The migration never re-sends historical messages, never re-subscribes an existing Plunk contact, and marks addresses with bounce, complaint, or suppression history as unsubscribed.
 

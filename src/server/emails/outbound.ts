@@ -1,8 +1,9 @@
 import { config } from '@/server/config';
 import { sendPlunkEmail, upsertPlunkContact } from '@/server/emails/plunk';
 import { sendResendEmail } from '@/server/emails/resend';
+import { sendPostalEmail } from '@/server/emails/postal';
 
-export type EmailSendProvider = 'plunk' | 'resend';
+export type EmailSendProvider = 'plunk' | 'postal' | 'resend';
 
 export type SendOutboundEmailInput = {
   to: string;
@@ -20,7 +21,9 @@ export type OutboundEmailSendResult = {
 };
 
 export function getEmailSendProvider(): EmailSendProvider {
-  return config.EMAIL_SEND_PROVIDER === 'resend' ? 'resend' : 'plunk';
+  if (config.EMAIL_SEND_PROVIDER === 'resend') return 'resend';
+  if (config.EMAIL_SEND_PROVIDER === 'postal') return 'postal';
+  return 'plunk';
 }
 
 async function syncPlunkContactWithoutBlockingSend(email: string): Promise<void> {
@@ -40,9 +43,14 @@ async function syncPlunkContactWithoutBlockingSend(email: string): Promise<void>
 }
 
 export async function sendOutboundEmail(input: SendOutboundEmailInput): Promise<OutboundEmailSendResult> {
-  if (getEmailSendProvider() === 'resend') {
+  const provider = getEmailSendProvider();
+  if (provider === 'resend') {
     await syncPlunkContactWithoutBlockingSend(input.to);
     return sendResendEmail(input);
+  }
+
+  if (provider === 'postal') {
+    return sendPostalEmail(input);
   }
 
   const response = await sendPlunkEmail({
