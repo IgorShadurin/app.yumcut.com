@@ -160,12 +160,13 @@ The app adds a custom idempotency header for diagnosis, but Postal's stable API 
 For the one-time Plunk migration, temporarily set `PLUNK_API_URL` and `PLUNK_SECRET_KEY`, run `npm run emails:migrate:plunk-to-local` as a dry run, then run `npm run emails:migrate:plunk-to-local -- --apply`. Existing Plunk UUID links are preserved and a local opt-out is never changed to subscribed. Remove both temporary variables after verification. `npm run emails:migrate:resend-to-local` similarly imports Resend delivery history; history is not treated as marketing consent. Neither migration sends messages.
 
 Safe cutover order:
-1. Back up the YumCut database, deploy the new release, and run `npm run prisma:migrate:deploy`.
-2. Run the Plunk migration first in dry-run mode and then with `--apply`. Compare its source and valid contact counts before continuing.
-3. Add the branded mail hostname as an additional HTTPS domain for the YumCut app in the hosting platform. Update its Cloudflare DNS record from the old preference service to the app only after the import succeeds. Cloudflare may proxy these web-only routes.
-4. Verify an imported `/manage/:token` URL and test `POST /unsubscribe/:token`; a plain `GET` must not unsubscribe.
-5. Set `EMAIL_SEND_PROVIDER=postal`, process one controlled marketing message, and inspect delivery plus DKIM-signed list-unsubscribe headers.
-6. Remove the temporary `PLUNK_*` variables. Keep the old service stopped but recoverable until old links, scheduled jobs, and contact counts have been verified.
+1. Pause the planned-email cron/worker. Until the contact import finishes, the new code intentionally treats an unknown marketing recipient as unsubscribed and would mark that queue item `skipped`.
+2. Back up the YumCut database, deploy the new release, and run `npm run prisma:migrate:deploy`.
+3. Run the Plunk migration first in dry-run mode and then with `--apply`. Compare its source and valid contact counts before continuing.
+4. Add the branded mail hostname as an additional HTTPS domain for the YumCut app in the hosting platform. Update its Cloudflare DNS record from the old preference service to the app only after the import succeeds. Cloudflare may proxy these web-only routes.
+5. Verify an imported `/manage/:token` URL and test `POST /unsubscribe/:token`; a plain `GET` must not unsubscribe.
+6. Set `EMAIL_SEND_PROVIDER=postal`, process one controlled marketing message, inspect delivery plus DKIM-signed list-unsubscribe headers, and then resume the planned-email worker.
+7. Remove the temporary `PLUNK_*` variables. Keep the old service stopped but recoverable until old links, scheduled jobs, and contact counts have been verified.
 
 Cron processing endpoint (requires `x-service-password` header with `SERVICE_API_PASSWORD`):
 - `GET https://app.yumcut.com/api/cron/planned-emails`
