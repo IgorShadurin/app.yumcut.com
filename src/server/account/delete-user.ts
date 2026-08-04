@@ -145,7 +145,10 @@ export async function deleteUserAccount(options: DeleteUserAccountOptions): Prom
     await tx.templateVoiceStyle.deleteMany({ where: { ownerId: userId } });
     await tx.templateMusic.deleteMany({ where: { ownerId: userId } });
     await cancelPlannedEmailsForUser(userId, tx);
-    await tx.emailContact.deleteMany({ where: { userId } });
+    // Keep account deletion compatible with a Prisma Client generated before the
+    // EmailContact model was added. The value remains parameterized and the
+    // deletion stays inside the surrounding transaction.
+    await tx.$executeRaw`DELETE FROM EmailContact WHERE userId = ${userId}`;
 
     await tx.tokenTransaction.deleteMany({ where: { userId } });
     await tx.subscriptionPurchase.deleteMany({ where: { userId } });

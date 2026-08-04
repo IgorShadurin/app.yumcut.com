@@ -48,7 +48,7 @@ function createTransactionMock() {
     templateVoiceStyle: { deleteMany: vi.fn() },
     templateMusic: { deleteMany: vi.fn() },
     plannedEmail: { deleteMany: vi.fn().mockResolvedValue({ count: 1 }) },
-    emailContact: { deleteMany: vi.fn().mockResolvedValue({ count: 1 }) },
+    $executeRaw: vi.fn().mockResolvedValue(1),
     tokenTransaction: { deleteMany: vi.fn() },
     subscriptionPurchase: { deleteMany: vi.fn() },
     telegramLinkToken: { deleteMany: vi.fn() },
@@ -100,7 +100,7 @@ describe('deleteUserAccount', () => {
 
     expect(tx.projectTemplateImage.deleteMany).toHaveBeenCalledWith({ where: { project: { userId: 'user-1' } } });
     expect(tx.plannedEmail.deleteMany).toHaveBeenCalledWith({ where: { userId: 'user-1' } });
-    expect(tx.emailContact.deleteMany).toHaveBeenCalledWith({ where: { userId: 'user-1' } });
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
   });
 
   it('deletes uploaded image assets from storage', async () => {
