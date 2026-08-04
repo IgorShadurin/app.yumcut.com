@@ -31,7 +31,7 @@ import { normalizeTemplateCustomData, type TemplateCustomData } from '@/shared/t
 import { getAdminVoiceProviderSettings } from '@/server/admin/voice-providers';
 import { buildVoiceProviderSet } from '@/shared/constants/voice-providers';
 import { getProjectCreationSettings } from '@/server/admin/project-creation';
-import { sendProjectCreatedEmail } from '@/server/emails/project-lifecycle';
+import { sendImageProjectCreatedEmail, sendProjectCreatedEmail } from '@/server/emails/project-lifecycle';
 import { normalizeProjectExperience } from '@/shared/constants/project-experience';
 import { normalizeContentTone } from '@/shared/constants/content-tone';
 import { defaultCharacterVideoGeneration } from '@/shared/constants/video-generation';
@@ -1042,16 +1042,19 @@ async function createImageGenerationProject(params: {
     }
   }
 
-  let ownerName: string | null = params.auth.sessionUser?.name ?? null;
-  let ownerEmail: string | null = params.auth.sessionUser?.email ?? null;
-  if (!ownerName || !ownerEmail) {
-    const dbUser = await prisma.user.findUnique({
-      where: { id: params.userId },
-      select: { name: true, email: true },
-    });
-    ownerName = ownerName ?? dbUser?.name ?? null;
-    ownerEmail = ownerEmail ?? dbUser?.email ?? null;
-  }
+  const dbUser = await prisma.user.findUnique({
+    where: { id: params.userId },
+    select: {
+      name: true,
+      email: true,
+      preferredLanguage: true,
+      settings: {
+        select: { projectEmailsEnabled: true },
+      },
+    },
+  });
+  const ownerName = params.auth.sessionUser?.name ?? dbUser?.name ?? null;
+  const ownerEmail = params.auth.sessionUser?.email ?? dbUser?.email ?? null;
   let projectUrl: string | null = null;
   const base = config.NEXTAUTH_URL?.trim();
   if (base) {
@@ -1068,6 +1071,18 @@ async function createImageGenerationProject(params: {
     projectUrl,
   }).catch((err) => {
     console.error('Failed to notify admins about new image project', err);
+  });
+
+  sendImageProjectCreatedEmail({
+    userId: params.userId,
+    email: ownerEmail,
+    name: ownerName,
+    preferredLanguage: dbUser?.preferredLanguage,
+    projectId: project.id,
+    projectTitle: project.title,
+    projectEmailsEnabled: dbUser?.settings?.projectEmailsEnabled ?? true,
+  }).catch((err) => {
+    console.error('Failed to send image project created email', err);
   });
 
   const trunc = (t: string) => (t.length > 30 ? t.slice(0, 27) + '...' : t);

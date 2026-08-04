@@ -13,7 +13,11 @@ import { storeTemplateImageMetadata } from '@/server/projects/helpers';
 import { TOKEN_TRANSACTION_TYPES } from '@/shared/constants/token-costs';
 import { PROJECT_RELATED_TOKEN_TYPES, extractProjectIdFromTokenMetadata, toUsedTokensFromDelta } from '@/server/admin/token-usage';
 import { normalizeMediaUrl } from '@/server/storage';
-import { sendProjectFailedEmail, sendProjectReadyEmail } from '@/server/emails/project-lifecycle';
+import {
+  sendImageProjectReadyEmail,
+  sendProjectFailedEmail,
+  sendProjectReadyEmail,
+} from '@/server/emails/project-lifecycle';
 import { normalizeProjectExperience } from '@/shared/constants/project-experience';
 
 type Params = { projectId: string };
@@ -224,9 +228,9 @@ export const POST = withApiError(async function POST(req: NextRequest, { params 
             select: { payload: true },
           })
         : null;
-      if (normalizeProjectExperience((initialJob?.payload as any)?.projectExperience) === 'image-generation') {
-        return ok({ ok: true });
-      }
+      const isImageGeneration = normalizeProjectExperience(
+        (initialJob?.payload as any)?.projectExperience,
+      ) === 'image-generation';
       const updatedProject = await prisma.project.findUnique({
         where: { id: projectId },
         select: {
@@ -247,6 +251,21 @@ export const POST = withApiError(async function POST(req: NextRequest, { params 
           },
         },
       });
+
+      if (isImageGeneration) {
+        if (updatedProject?.user) {
+          await sendImageProjectReadyEmail({
+            userId: updatedProject.user.id,
+            email: updatedProject.user.email,
+            name: updatedProject.user.name,
+            preferredLanguage: updatedProject.user.preferredLanguage,
+            projectId: updatedProject.id,
+            projectTitle: updatedProject.title,
+            projectEmailsEnabled: updatedProject.user.settings?.projectEmailsEnabled ?? true,
+          });
+        }
+        return ok({ ok: true });
+      }
 
       const videoFromExtra = pickFinalVideoUrlFromStatusExtra(extra, normalizedLanguages);
       const finalVideoUrl = updatedProject

@@ -13,7 +13,9 @@ export const EMAIL_KIND_FOLLOW_UP_24H = 'follow_up_24h_v1';
 export const EMAIL_KIND_REPLY_BONUS_CONFIRMED = 'reply_bonus_confirmed_v1';
 export const EMAIL_KIND_SUBSCRIPTION_WINBACK = 'subscription_cancelled_winback_v1';
 export const EMAIL_KIND_PROJECT_CREATED = 'project_created_v1';
+export const EMAIL_KIND_IMAGE_PROJECT_CREATED = 'image_project_created_v1';
 export const EMAIL_KIND_PROJECT_READY = 'project_ready_v1';
+export const EMAIL_KIND_IMAGE_PROJECT_READY = 'image_project_ready_v1';
 export const EMAIL_KIND_PROJECT_FAILED = 'project_failed_v1';
 
 const DEFAULT_EMAIL_LANGUAGE = 'en';
@@ -299,7 +301,9 @@ function isMarketingEmailKind(kind: string): boolean {
   return ![
     EMAIL_KIND_REPLY_BONUS_CONFIRMED,
     EMAIL_KIND_PROJECT_CREATED,
+    EMAIL_KIND_IMAGE_PROJECT_CREATED,
     EMAIL_KIND_PROJECT_READY,
+    EMAIL_KIND_IMAGE_PROJECT_READY,
     EMAIL_KIND_PROJECT_FAILED,
   ].includes(kind);
 }
