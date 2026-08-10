@@ -251,6 +251,53 @@ describe('project creation from character slug', () => {
     expect(prismaMock.job.create).not.toHaveBeenCalled();
   });
 
+  it('rejects an oversized standalone image prompt before charging tokens', async () => {
+    const route = await import('@/app/api/projects/route');
+    const req = new NextRequest('http://localhost/api/projects', {
+      method: 'POST',
+      body: JSON.stringify({
+        prompt: 'x'.repeat(3_001),
+        projectExperience: 'image-generation',
+      }),
+      headers: { 'content-type': 'application/json' },
+    });
+
+    const res = await route.POST(req);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error?.message).toContain('Shorten your prompt to 3000 characters or fewer.');
+    expect(spendTokensMock).not.toHaveBeenCalled();
+    expect(prismaMock.project.create).not.toHaveBeenCalled();
+    expect(prismaMock.job.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects an oversized Image Prank prompt before resolving images or charging tokens', async () => {
+    const route = await import('@/app/api/projects/route');
+    const req = new NextRequest('http://localhost/api/projects', {
+      method: 'POST',
+      body: JSON.stringify({
+        prompt: 'x'.repeat(1_797),
+        projectExperience: 'image-generation',
+        imagePrank: {
+          mode: 'custom-two-image',
+          sourceImages: [
+            { role: 'prank', path: 'uploads/a.jpg', url: '/media/uploads/a.jpg' },
+            { role: 'target', path: 'uploads/b.jpg', url: '/media/uploads/b.jpg' },
+          ],
+        },
+      }),
+      headers: { 'content-type': 'application/json' },
+    });
+
+    const res = await route.POST(req);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error?.message).toContain('Shorten your prompt to 1796 characters or fewer.');
+    expect(spendTokensMock).not.toHaveBeenCalled();
+    expect(prismaMock.project.create).not.toHaveBeenCalled();
+    expect(prismaMock.job.create).not.toHaveBeenCalled();
+  });
+
   it('charges low-quality character projects at the low-quality fixed cost', async () => {
     prismaMock.character.findFirst.mockResolvedValue({
       id: 'char-1',

@@ -34,6 +34,10 @@ import type {
   ImagePrankSourceImageDTO,
   ImagePrankSourceImageRole,
 } from '@/shared/types';
+import {
+  IMAGE_PRANK_WEB_USER_PROMPT_MAX_CHARACTERS,
+  promptCharacterCount,
+} from '@/shared/image-generation/prompt';
 
 type UploadedSource = {
   role: ImagePrankSourceImageRole;
@@ -125,6 +129,7 @@ const COPY: Record<AppLanguageCode, {
   back: string;
   reuseLoadFailed: string;
   missingPrompt: string;
+  promptTooLong: (max: number) => string;
   missingImages: string;
   tokenLoadFailed: string;
   createFailed: string;
@@ -183,6 +188,7 @@ const COPY: Record<AppLanguageCode, {
     back: 'Back',
     reuseLoadFailed: 'Could not load previous Image Prank',
     missingPrompt: 'Enter a prompt',
+    promptTooLong: (max) => `Keep the prompt to ${max} characters or fewer`,
     missingImages: 'Upload the required images',
     tokenLoadFailed: 'Could not load token balance',
     createFailed: 'Failed to create Image Prank',
@@ -241,6 +247,7 @@ const COPY: Record<AppLanguageCode, {
     back: 'Назад',
     reuseLoadFailed: 'Не удалось загрузить прошлый Image Prank',
     missingPrompt: 'Введите промпт',
+    promptTooLong: (max) => `Сократите промпт до ${max} символов`,
     missingImages: 'Загрузите нужные изображения',
     tokenLoadFailed: 'Не удалось загрузить баланс токенов',
     createFailed: 'Не удалось создать Image Prank',
@@ -605,6 +612,10 @@ export function ImagePrankComposer({ item }: { item?: ImagePrankCatalogItemDTO |
       toast.error(copy.missingPrompt);
       return false;
     }
+    if (promptCharacterCount(prompt.trim()) > IMAGE_PRANK_WEB_USER_PROMPT_MAX_CHARACTERS) {
+      toast.error(copy.promptTooLong(IMAGE_PRANK_WEB_USER_PROMPT_MAX_CHARACTERS));
+      return false;
+    }
     if (isCatalogMode && !targetFile && !targetSource) {
       toast.error(copy.missingImages);
       return false;
@@ -830,6 +841,14 @@ export function ImagePrankComposer({ item }: { item?: ImagePrankCatalogItemDTO |
                 className="h-[160px] resize-none sm:h-[170px] lg:h-[190px]"
                 disabled={submitting || reuseLoading}
               />
+              <p className={cn(
+                'text-right text-xs',
+                promptCharacterCount(prompt.trim()) > IMAGE_PRANK_WEB_USER_PROMPT_MAX_CHARACTERS
+                  ? 'text-red-600 dark:text-red-400'
+                  : 'text-gray-500 dark:text-gray-400',
+              )}>
+                {promptCharacterCount(prompt.trim())}/{IMAGE_PRANK_WEB_USER_PROMPT_MAX_CHARACTERS}
+              </p>
             </div>
 
             <div className="grid items-end gap-3 lg:grid-cols-[minmax(220px,320px)_minmax(0,1fr)]">

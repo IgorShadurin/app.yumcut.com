@@ -29,6 +29,13 @@ describe('user API OpenAPI spec', () => {
     expect(createProject.responses).toHaveProperty('409');
   });
 
+  it('documents provider-aware image generation prompt limits', () => {
+    const prompt = userApiOpenApiSpec.components.schemas.ProjectCreate.properties.prompt;
+
+    expect(prompt.description).toContain('3,000 characters for standalone images');
+    expect(prompt.description).toContain('1,796 characters when imagePrank is supplied');
+  });
+
   it('does not expose billing, account deletion, or admin paths', () => {
     const paths = Object.keys(userApiOpenApiSpec.paths);
     expect(paths.some((path) => path.includes('subscription'))).toBe(false);

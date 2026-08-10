@@ -1,3 +1,8 @@
+import {
+  IMAGE_PRANK_WEB_USER_PROMPT_MAX_CHARACTERS,
+  RUNWARE_POSITIVE_PROMPT_MAX_CHARACTERS,
+} from '@/shared/image-generation/prompt';
+
 const jsonSchema = {
   type: 'object',
   additionalProperties: true,
@@ -209,7 +214,10 @@ const settingsPatchSchema = {
 const projectCreateSchema = {
   type: 'object',
   properties: {
-    prompt: { type: 'string' },
+    prompt: {
+      type: 'string',
+      description: `Project prompt. For image-generation projects, Runware processing limits the user prompt to ${RUNWARE_POSITIVE_PROMPT_MAX_CHARACTERS.toLocaleString('en-US')} characters for standalone images and ${IMAGE_PRANK_WEB_USER_PROMPT_MAX_CHARACTERS.toLocaleString('en-US')} characters when imagePrank is supplied.`,
+    },
     rawScript: { type: 'string' },
     durationSeconds: { type: 'integer', minimum: 30 },
     languages: { type: 'array', items: { type: 'string' } },

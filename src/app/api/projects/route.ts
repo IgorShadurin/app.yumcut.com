@@ -53,6 +53,15 @@ import {
   normalizeCharacterVideoQuality,
   qualityForVideoGenerationMode,
 } from '@/shared/constants/character-video-quality';
+import {
+  buildImageGenerationPrompt,
+  buildImagePrankPrompt,
+  getRunwarePositivePromptValidationError,
+  IOS_IMAGE_GENERATION_SAFETY_PROMPT,
+  promptCharacterCount,
+  RUNWARE_POSITIVE_PROMPT_MAX_CHARACTERS,
+  runwareUserPromptMaxCharacters,
+} from '@/shared/image-generation/prompt';
 
 export const GET = withApiError(async function GET(req: NextRequest) {
   const auth = await authenticateApiRequest(req);
@@ -601,25 +610,6 @@ type ImageDimensions = {
   height: number;
 };
 
-const IMAGE_PRANK_SYSTEM_PROMPT = [
-  'System instruction for Image Prank generation:',
-  'Use the provided reference images in the exact order supplied.',
-  'When two reference images are supplied, organically integrate the first reference image into the second reference image as the target scene or background.',
-  'For two reference images, interpret "prank image", "first image", "image 1", or "first reference" as the first supplied image, and interpret "target image", "second image", "image 2", "background", or "target scene" as the second supplied image.',
-  'Match perspective, scale, lighting direction, shadows, reflections, color temperature, depth of field, camera style, texture, grain, and natural occlusion so the result looks like a real single image, not a sticker, collage, or copy-paste.',
-  'Preserve the target scene unless the user explicitly asks to change it.',
-  'When one reference image is supplied, edit that image according to the user prompt while preserving its main subject and camera realism.',
-  'For one reference image, interpret any mention of "the image", "this image", "reference image", "first image", or "target image" as the single supplied image.',
-  'Do not add captions, text, UI, logos, watermarks, or random artifacts.',
-].join('\n');
-
-const IOS_IMAGE_GENERATION_SAFETY_PROMPT = [
-  'Mobile safety instruction:',
-  'This request came from the iOS app. Generate only age-appropriate, non-explicit, non-NSFW imagery.',
-  'Do not create nudity, explicit sexual content, pornographic or erotic framing, fetish content, lingerie or underwear focus, or sexualized minors.',
-  'Keep clothing, pose, camera framing, and context safe for a general mobile audience.',
-].join('\n');
-
 const IOS_IMAGE_GENERATION_NEGATIVE_PROMPT = [
   'nudity',
   'nude',
@@ -661,18 +651,6 @@ function shouldBlockNsfwForAuth(auth: NonNullable<Awaited<ReturnType<typeof auth
 
 function hasBlockedIosNsfwPrompt(prompt: string) {
   return IOS_BLOCKED_NSFW_PROMPT_PATTERNS.some((pattern) => pattern.test(prompt));
-}
-
-function buildImageGenerationPrompt(userPrompt: string, blockNsfw: boolean) {
-  const trimmed = userPrompt.trim();
-  return blockNsfw ? `${IOS_IMAGE_GENERATION_SAFETY_PROMPT}\n\nUser prompt:\n${trimmed}` : trimmed;
-}
-
-function buildImagePrankPrompt(userPrompt: string, blockNsfw: boolean) {
-  const systemPrompt = blockNsfw
-    ? `${IMAGE_PRANK_SYSTEM_PROMPT}\n${IOS_IMAGE_GENERATION_SAFETY_PROMPT}`
-    : IMAGE_PRANK_SYSTEM_PROMPT;
-  return `${systemPrompt}\n\nUser prompt:\n${userPrompt.trim()}`;
 }
 
 function localizedTitle(item: ImagePrankCatalogItemDTO): string {
@@ -847,6 +825,25 @@ async function createImageGenerationProject(params: {
     );
   }
   const generationPrompt = buildImageGenerationPrompt(prompt, blockNsfw);
+  const finalPrompt = params.imagePrank
+    ? buildImagePrankPrompt(prompt, blockNsfw)
+    : generationPrompt;
+  const promptValidationError = getRunwarePositivePromptValidationError(finalPrompt);
+  if (promptValidationError) {
+    const promptIsTooLong = promptCharacterCount(finalPrompt) > RUNWARE_POSITIVE_PROMPT_MAX_CHARACTERS;
+    const maxUserPromptCharacters = runwareUserPromptMaxCharacters(
+      params.imagePrank
+        ? buildImagePrankPrompt('', blockNsfw)
+        : buildImageGenerationPrompt('', blockNsfw),
+    );
+    return error(
+      'VALIDATION_ERROR',
+      promptIsTooLong
+        ? `${promptValidationError} Shorten your prompt to ${maxUserPromptCharacters} characters or fewer.`
+        : promptValidationError,
+      400,
+    );
+  }
 
   const normalizedCharacterSlug =
     typeof params.characterSlug === 'string' && params.characterSlug.trim().length > 0
