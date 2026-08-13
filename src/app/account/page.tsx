@@ -11,6 +11,7 @@ import { normalizeAppLanguage } from '@/shared/constants/app-language';
 import { AccountOverviewCard, AccountTokensCard } from '@/components/account/account-summary-cards';
 import { SubscriptionPlansCard } from '@/components/account/subscription-plans-card';
 import { getWebSubscriptionStatus } from '@/server/stripe/subscriptions';
+import { getTokenTopUpPackagesForUi } from '@/server/stripe/token-topups';
 import { ProjectEmailNotificationCard } from '@/components/account/project-email-notification-card';
 import { UserApiKeysCard } from '@/components/account/user-api-keys-card';
 import { listUserApiKeys } from '@/server/user-api/api-keys';
@@ -86,7 +87,10 @@ export default async function AccountPage() {
       />
 
       <LanguagePreferenceCard initialLanguage={preferredLanguage} />
-      <SubscriptionPlansCard initialStatus={subscriptionStatus} />
+      <SubscriptionPlansCard
+        initialStatus={subscriptionStatus}
+        topUpPackages={getTokenTopUpPackagesForUi()}
+      />
       <AccountTokensCard balance={balance} />
       <ProjectEmailNotificationCard />
       <UserApiKeysCard initialKeys={apiKeys} />

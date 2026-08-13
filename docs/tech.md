@@ -119,6 +119,20 @@ Key flags:
 - Main app always runs in UI mode; the storage worker is now a separate service. Configure `NEXT_PUBLIC_STORAGE_BASE_URL` / `STORAGE_PUBLIC_URL` to point at the storage host.
 - `STORAGE_ALLOWED_ORIGINS` controls which browser origins can POST to the storage uploader (comma-separated list).
 
+### Stripe billing
+
+Recurring subscriptions use `STRIPE_WEEKLY_PRICE_ID`, `STRIPE_MONTHLY_PRICE_ID`, and
+`STRIPE_MONTHLY_PRO_PRICE_ID`. One-time balance top-ups use these live one-time Price IDs:
+
+- `STRIPE_TOP_UP_75_PRICE_ID=price_1TWYxPRQgiCJNWSikcsL5RYA` — $2.99 for 75 tokens.
+- `STRIPE_TOP_UP_750_PRICE_ID=price_1U3w4zRQgiCJNWSiM8h52KQe` — $19.99 for 750 tokens.
+- `STRIPE_TOP_UP_1500_PRICE_ID=price_1U3w5kRQgiCJNWSiPHurzbKX` — $34.99 for 1,500 tokens.
+
+The Stripe webhook at `/api/stripe/webhook` must receive `checkout.session.completed` and
+`checkout.session.async_payment_succeeded` in addition to the subscription events. Top-up crediting
+is idempotent by Checkout Session ID and is committed in the same database transaction as its token
+ledger entry. Deploy Prisma migrations before starting the upgraded app.
+
 ### Email Automation (YumCut contacts with Postal or Resend delivery)
 
 YumCut supports:

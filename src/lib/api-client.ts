@@ -237,6 +237,17 @@ export const Api = {
       method: 'POST',
       errorToastTitle: 'Failed to open billing portal',
     }),
+  createTokenTopUpCheckout: (tokenPackage: import('@/shared/constants/token-topups').TokenTopUpPackageKey) =>
+    api<{ url: string; sessionId: string }>('/api/token-topups/checkout', {
+      method: 'POST',
+      body: JSON.stringify({ package: tokenPackage }),
+      errorToastTitle: 'Failed to start token top-up checkout',
+    }),
+  getTokenTopUpStatus: (sessionId: string) =>
+    api<
+      | { status: 'pending' }
+      | { status: 'credited'; tokens: number; creditedAt: string }
+    >(`/api/token-topups/status?session_id=${encodeURIComponent(sessionId)}`),
   getTokenHistory: (options?: { page?: number; pageSize?: number }) => {
     const params = new URLSearchParams();
     if (options?.page && Number.isFinite(options.page)) params.set('page', String(Math.max(1, Math.floor(options.page))));

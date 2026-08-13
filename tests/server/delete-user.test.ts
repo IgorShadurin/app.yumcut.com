@@ -50,6 +50,7 @@ function createTransactionMock() {
     plannedEmail: { deleteMany: vi.fn().mockResolvedValue({ count: 1 }) },
     $executeRaw: vi.fn().mockResolvedValue(1),
     tokenTransaction: { deleteMany: vi.fn() },
+    tokenTopUpPurchase: { deleteMany: vi.fn() },
     subscriptionPurchase: { deleteMany: vi.fn() },
     telegramLinkToken: { deleteMany: vi.fn() },
     telegramAccount: { deleteMany: vi.fn() },

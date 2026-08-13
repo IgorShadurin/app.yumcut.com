@@ -14,6 +14,7 @@ export const TOKEN_TRANSACTION_TYPES = {
   projectFailureRefund: 'PROJECT_FAILURE_REFUND',
   characterImage: 'CHARACTER_IMAGE',
   subscriptionCredit: 'SUBSCRIPTION_CREDIT',
+  tokenTopUp: 'TOKEN_TOP_UP',
 } as const;
 
 export type TokenTransactionType = typeof TOKEN_TRANSACTION_TYPES[keyof typeof TOKEN_TRANSACTION_TYPES];

@@ -1,11 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BadgeCheck, CalendarClock, CreditCard, Loader2, RefreshCcw, Repeat } from 'lucide-react';
+import { BadgeCheck, CalendarClock, Coins, CreditCard, Loader2, RefreshCcw, Repeat } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Api } from '@/lib/api-client';
 import { useAppLanguage } from '@/components/providers/AppLanguageProvider';
 import type { AppLanguageCode } from '@/shared/constants/app-language';
@@ -13,6 +15,7 @@ import type { SubscriptionStatusDTO } from '@/shared/types';
 import { requestTokenRefresh } from '@/hooks/useTokenSummary';
 import { formatDateTime } from '@/lib/date';
 import { formatSubscriptionVideoCountForPaywall, type SubscriptionPlanKey } from '@/shared/constants/subscriptions';
+import type { TokenTopUpPackage, TokenTopUpPackageKey } from '@/shared/constants/token-topups';
 
 type SubscriptionCardCopy = {
   title: string;
@@ -42,6 +45,18 @@ type SubscriptionCardCopy = {
   checkoutError: string;
   portalError: string;
   notConfigured: string;
+  topUpTitle: string;
+  topUpDescription: string;
+  topUpPackageLabel: string;
+  topUpOption: (tokens: number, priceUsd: number) => string;
+  topUpAction: string;
+  topUpCreating: string;
+  topUpPaymentReceived: string;
+  topUpSuccess: (tokens: number) => string;
+  topUpCancelled: string;
+  topUpPending: string;
+  topUpError: string;
+  topUpNotConfigured: string;
 };
 
 const COPY: Record<AppLanguageCode, SubscriptionCardCopy> = {
@@ -73,6 +88,18 @@ const COPY: Record<AppLanguageCode, SubscriptionCardCopy> = {
     checkoutError: 'Failed to start checkout.',
     portalError: 'Failed to open billing portal.',
     notConfigured: 'Stripe billing is not configured yet.',
+    topUpTitle: 'Top up balance',
+    topUpDescription: 'Buy a one-time token package. No subscription is created.',
+    topUpPackageLabel: 'Token package',
+    topUpOption: (tokens, priceUsd) => `${tokens.toLocaleString()} tokens — $${priceUsd.toFixed(2)}`,
+    topUpAction: 'Buy tokens',
+    topUpCreating: 'Opening checkout…',
+    topUpPaymentReceived: 'Payment received. Crediting tokens…',
+    topUpSuccess: (tokens) => `${tokens.toLocaleString()} tokens were added to your balance.`,
+    topUpCancelled: 'Token purchase cancelled.',
+    topUpPending: 'Payment succeeded. Tokens are still being credited; refresh shortly if the balance has not updated.',
+    topUpError: 'Failed to start token purchase.',
+    topUpNotConfigured: 'One-time token purchases are not configured yet.',
   },
   ru: {
     title: 'Планы подписки',
@@ -102,6 +129,18 @@ const COPY: Record<AppLanguageCode, SubscriptionCardCopy> = {
     checkoutError: 'Не удалось запустить оплату.',
     portalError: 'Не удалось открыть billing portal.',
     notConfigured: 'Stripe-подписки пока не настроены.',
+    topUpTitle: 'Пополнить баланс',
+    topUpDescription: 'Купите пакет токенов одним платежом. Подписка не оформляется.',
+    topUpPackageLabel: 'Пакет токенов',
+    topUpOption: (tokens, priceUsd) => `${tokens.toLocaleString()} токенов — $${priceUsd.toFixed(2)}`,
+    topUpAction: 'Купить токены',
+    topUpCreating: 'Открываем оплату…',
+    topUpPaymentReceived: 'Платёж получен. Начисляем токены…',
+    topUpSuccess: (tokens) => `${tokens.toLocaleString()} токенов добавлено на баланс.`,
+    topUpCancelled: 'Покупка токенов отменена.',
+    topUpPending: 'Платёж прошёл. Токены ещё начисляются; обновите страницу немного позже, если баланс не изменился.',
+    topUpError: 'Не удалось начать покупку токенов.',
+    topUpNotConfigured: 'Разовые покупки токенов пока не настроены.',
   },
 };
 
@@ -114,7 +153,15 @@ function formatPeriodDate(value: string | null, fallback: string) {
   }
 }
 
-export function SubscriptionPlansCard({ initialStatus }: { initialStatus: SubscriptionStatusDTO }) {
+type TokenTopUpPackageUi = TokenTopUpPackage & { configured: boolean };
+
+export function SubscriptionPlansCard({
+  initialStatus,
+  topUpPackages,
+}: {
+  initialStatus: SubscriptionStatusDTO;
+  topUpPackages: TokenTopUpPackageUi[];
+}) {
   const { language } = useAppLanguage();
   const t = COPY[language];
   const pathname = usePathname();
@@ -125,6 +172,10 @@ export function SubscriptionPlansCard({ initialStatus }: { initialStatus: Subscr
   const [refreshing, setRefreshing] = useState(false);
   const [checkoutPlan, setCheckoutPlan] = useState<SubscriptionPlanKey | null>(null);
   const [openingPortal, setOpeningPortal] = useState(false);
+  const [selectedTopUp, setSelectedTopUp] = useState<TokenTopUpPackageKey>(
+    topUpPackages.find((tokenPackage) => tokenPackage.configured)?.key ?? topUpPackages[0]?.key ?? 'starter',
+  );
+  const [openingTopUp, setOpeningTopUp] = useState(false);
 
   const activeProductId = status.active ? status.productId : null;
   const activePlan = useMemo(
@@ -183,6 +234,19 @@ export function SubscriptionPlansCard({ initialStatus }: { initialStatus: Subscr
     }
   };
 
+  const startTopUpCheckout = async () => {
+    setOpeningTopUp(true);
+    try {
+      const result = await Api.createTokenTopUpCheckout(selectedTopUp);
+      window.location.href = result.url;
+    } catch (error) {
+      toast.error(t.topUpError);
+      void error;
+    } finally {
+      setOpeningTopUp(false);
+    }
+  };
+
   useEffect(() => {
     const billingState = searchParams.get('billing');
     const hasSessionId = Boolean(searchParams.get('session_id'));
@@ -225,6 +289,62 @@ export function SubscriptionPlansCard({ initialStatus }: { initialStatus: Subscr
     };
   }, [searchParams, pathname, router, t.checkoutSuccess, t.checkoutCancelled, fetchStatus]);
 
+  useEffect(() => {
+    const topUpState = searchParams.get('topup');
+    const checkoutSessionId = searchParams.get('topup_session_id');
+    if (!topUpState && !checkoutSessionId) return;
+
+    const clearTopUpParams = () => {
+      const nextParams = new URLSearchParams(searchParams.toString());
+      nextParams.delete('topup');
+      nextParams.delete('topup_session_id');
+      const nextQuery = nextParams.toString();
+      router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+    };
+
+    if (topUpState === 'cancelled') {
+      toast.info(t.topUpCancelled);
+      clearTopUpParams();
+    } else if (topUpState === 'success' || checkoutSessionId) {
+      toast.success(t.topUpPaymentReceived);
+    }
+
+    let cancelled = false;
+    if (checkoutSessionId && (topUpState === 'success' || !topUpState)) {
+      void (async () => {
+        try {
+          for (let index = 0; index < 10; index += 1) {
+            if (cancelled) return;
+            try {
+              const result = await Api.getTokenTopUpStatus(checkoutSessionId);
+              if (result.status === 'credited') {
+                toast.success(t.topUpSuccess(result.tokens));
+                requestTokenRefresh();
+                router.refresh();
+                return;
+              }
+            } catch (error) {
+              void error;
+            }
+            if (index < 9) await new Promise((resolve) => setTimeout(resolve, 1500));
+          }
+          if (!cancelled) toast.info(t.topUpPending);
+        } finally {
+          if (!cancelled) clearTopUpParams();
+        }
+      })();
+    } else if (topUpState !== 'cancelled') {
+      clearTopUpParams();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, pathname, router, t]);
+
+  const selectedTopUpPackage = topUpPackages.find((tokenPackage) => tokenPackage.key === selectedTopUp);
+  const topUpsConfigured = topUpPackages.length > 0 && topUpPackages.every((tokenPackage) => tokenPackage.configured);
+
   return (
     <Card>
       <CardHeader>
@@ -237,7 +357,7 @@ export function SubscriptionPlansCard({ initialStatus }: { initialStatus: Subscr
             <CardDescription>{t.description}</CardDescription>
           </div>
           <Button
-            className="ml-auto shrink-0"
+            className="ml-auto shrink-0 cursor-pointer"
             variant="outline"
             size="icon"
             onClick={() => void refreshStatus()}
@@ -315,7 +435,7 @@ export function SubscriptionPlansCard({ initialStatus }: { initialStatus: Subscr
                     })}
                   </div>
                   <Button
-                    className="mt-3 w-full"
+                    className="mt-3 w-full cursor-pointer"
                     variant={isCurrent ? 'outline' : 'default'}
                     disabled={isCurrent || isLoading || openingPortal || refreshing || !plan.configured}
                     onClick={() => void startCheckout(plan.planKey)}
@@ -330,11 +450,57 @@ export function SubscriptionPlansCard({ initialStatus }: { initialStatus: Subscr
         )}
 
         {status.canManageBilling ? (
-          <Button variant="outline" onClick={() => void openPortal()} disabled={openingPortal || checkoutPlan !== null}>
+          <Button className="cursor-pointer" variant="outline" onClick={() => void openPortal()} disabled={openingPortal || checkoutPlan !== null}>
             {openingPortal ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
             {openingPortal ? t.portalOpening : t.manageBilling}
           </Button>
         ) : null}
+
+        <Separator className="my-6" />
+
+        <section aria-labelledby="token-top-up-title" className="space-y-3">
+          <div className="space-y-1">
+            <h3 id="token-top-up-title" className="flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-gray-100">
+              <Coins className="h-5 w-5" />
+              <span>{t.topUpTitle}</span>
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t.topUpDescription}</p>
+          </div>
+
+          {!topUpsConfigured ? (
+            <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-900 dark:border-yellow-900/40 dark:bg-yellow-950/30 dark:text-yellow-100">
+              {t.topUpNotConfigured}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <label htmlFor="token-top-up-package" className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  {t.topUpPackageLabel}
+                </label>
+                <Select value={selectedTopUp} onValueChange={(value) => setSelectedTopUp(value as TokenTopUpPackageKey)}>
+                  <SelectTrigger id="token-top-up-package" className="cursor-pointer rounded-lg">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {topUpPackages.map((tokenPackage) => (
+                      <SelectItem className="cursor-pointer" key={tokenPackage.key} value={tokenPackage.key}>
+                        {t.topUpOption(tokenPackage.tokens, tokenPackage.priceUsd)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                className="cursor-pointer sm:min-w-40"
+                disabled={openingTopUp || !selectedTopUpPackage?.configured}
+                onClick={() => void startTopUpCheckout()}
+              >
+                {openingTopUp ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
+                {openingTopUp ? t.topUpCreating : t.topUpAction}
+              </Button>
+            </div>
+          )}
+        </section>
       </CardContent>
     </Card>
   );

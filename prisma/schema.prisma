@@ -53,6 +53,7 @@ model User {
   publishTasks                            PublishTask[]
   plannedEmails                           PlannedEmail[]
   subscriptionPurchases                   SubscriptionPurchase[]
+  tokenTopUpPurchases                     TokenTopUpPurchase[]
   guestProfile                            GuestProfile?
   favoriteCharacters                      UserFavoriteCharacter[]
   attribution                             UserAttribution?
@@ -633,6 +634,24 @@ model SubscriptionPurchase {
 
   @@index([userId, productId])
   @@index([originalTransactionId])
+}
+
+model TokenTopUpPurchase {
+  id                      String   @id @default(uuid()) @db.Char(36)
+  userId                  String   @db.Char(36)
+  stripeCheckoutSessionId String   @unique @db.VarChar(128)
+  stripePaymentIntentId   String?  @unique @db.VarChar(128)
+  stripePriceId           String   @db.VarChar(128)
+  packageKey              String   @db.VarChar(32)
+  tokens                  Int
+  amountTotal             Int
+  currency                String   @db.VarChar(8)
+  livemode                Boolean
+  payload                 Json?
+  createdAt               DateTime @default(now())
+  user                    User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
 }
 
 model ProjectCharacterSelection {

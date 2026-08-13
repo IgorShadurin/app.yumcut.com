@@ -19,6 +19,7 @@ import {
   type PurchaseSource,
 } from '@/server/subscriptions';
 import type { SubscriptionStatusDTO } from '@/shared/types';
+import { processPaidStripeTokenTopUpSession } from '@/server/stripe/token-topups';
 
 type StripePlanKey = SubscriptionPlanKey;
 
@@ -1089,6 +1090,11 @@ export async function handleStripeWebhook(input: {
   });
 
   switch (event.type) {
+    case 'checkout.session.completed':
+    case 'checkout.session.async_payment_succeeded': {
+      await processPaidStripeTokenTopUpSession(event.data.object as Stripe.Checkout.Session, event.id);
+      break;
+    }
     case 'invoice.payment_succeeded': {
       await processInvoicePaymentSucceeded(event.data.object as Stripe.Invoice, event.id);
       break;

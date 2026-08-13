@@ -151,6 +151,7 @@ export async function deleteUserAccount(options: DeleteUserAccountOptions): Prom
     await tx.$executeRaw`DELETE FROM EmailContact WHERE userId = ${userId}`;
 
     await tx.tokenTransaction.deleteMany({ where: { userId } });
+    await tx.tokenTopUpPurchase.deleteMany({ where: { userId } });
     await tx.subscriptionPurchase.deleteMany({ where: { userId } });
     await tx.telegramLinkToken.deleteMany({ where: { userId } });
     await tx.telegramAccount.deleteMany({ where: { userId } });
