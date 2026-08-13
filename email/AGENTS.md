@@ -36,3 +36,60 @@ These rules are mandatory for all email templates in `email/en` and `email/ru`.
 - Keep the local part (before `@`) at 64 characters or less (RFC limit).
 - If aliasing is used in `Reply-To`, prefer short prefixes to avoid breaching local-part length.
 - Treat any provider error containing `Invalid \`reply_to\` field` as a release-blocking regression.
+
+## Postal Marketing Campaign CLI
+
+YumCut already has a reusable, non-hardcoded command-line marketing sender. Reuse it instead of
+searching other repositories for a mail script or building another one:
+
+- npm command: `npm run emails:campaign -- ...`
+- CLI entry point: `scripts/send-marketing-campaign.ts`
+- delivery and safety logic: `src/server/emails/marketing-campaign.ts`
+- provider: Postal directly; marketing campaigns do not use Resend or `EMAIL_SEND_PROVIDER`
+- default pacing: 2,000 milliseconds between recipients
+
+Campaign bodies belong in UTF-8 text files, normally under `email/campaigns/<language>/`. Content
+must not be hardcoded into the CLI implementation. Use a new stable `--campaign-id` for each real
+campaign and a separate ID for test sends.
+
+Preview a campaign before every send:
+
+```bash
+npm run emails:campaign -- \
+  --all \
+  --campaign-id "2026-08-example" \
+  --subject "Example subject" \
+  --text-file "/absolute/path/to/email.txt" \
+  --dry-run
+```
+
+Only after reviewing the eligible and selected counts, replace `--dry-run` with
+`--confirm-send`. The command refuses to send without this explicit flag.
+
+For a test or limited campaign, repeat `--to` or provide comma-separated addresses:
+
+```bash
+npm run emails:campaign -- \
+  --to "igor.shadurin@gmail.com" \
+  --campaign-id "2026-08-example-test" \
+  --subject "Example subject" \
+  --text-file "/absolute/path/to/email.txt" \
+  --dry-run
+```
+
+Operational rules:
+
+- `--all` means all locally subscribed, non-suppressed contacts in the configured YumCut audience,
+  never every raw user email.
+- Explicit `--to` recipients must normally be subscribed and non-suppressed. Non-suppressed
+  YumCut admin accounts are allowed for campaign testing without changing their consent state.
+- Postal renders the plain and HTML bodies and adds the branded preference link, RFC 8058
+  one-click unsubscribe headers, and suppression checks.
+- Recipient-level duplicate protection is keyed by `--campaign-id`. Rerunning the same campaign
+  skips already processed contacts and continues unfinished contacts.
+- Use `--retry-failed` only when intentionally retrying contacts recorded as failed.
+- Inline `--text` is available for short tests; prefer `--text-file` for real campaigns.
+- The delay may be changed with `--delay-ms`, but keep the 2-second default unless there is a clear
+  deliverability reason to use a slower rate.
+- Full operational documentation and examples are in `docs/tech.md` under
+  "Command-line Postal marketing campaigns."

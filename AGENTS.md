@@ -4,6 +4,12 @@
 
 Email-writing instructions live in [email/AGENTS.md](email/AGENTS.md).
 
+- YumCut already has a reusable command-line Postal marketing campaign sender. Before searching
+  for or developing another marketing-mail script, use `npm run emails:campaign -- --help` and
+  follow the campaign instructions in `email/AGENTS.md`.
+- The campaign CLI implementation is `scripts/send-marketing-campaign.ts`; reusable campaign
+  delivery logic is in `src/server/emails/marketing-campaign.ts`.
+
 ## Commit Rules
 
 - After completing the requested feature, commit all changes.
