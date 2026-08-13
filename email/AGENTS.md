@@ -57,6 +57,7 @@ Preview a campaign before every send:
 ```bash
 npm run emails:campaign -- \
   --all \
+  --language "en" \
   --campaign-id "2026-08-example" \
   --subject "Example subject" \
   --text-file "/absolute/path/to/email.txt" \
@@ -81,6 +82,8 @@ Operational rules:
 
 - `--all` means all locally subscribed, non-suppressed contacts in the configured YumCut audience,
   never every raw user email.
+- Use `--language en` or `--language ru` with `--all` when campaign content is localized. The
+  filter matches `EmailContact.preferredLanguage`; unknown languages are not silently included.
 - Explicit `--to` recipients must normally be subscribed and non-suppressed. Non-suppressed
   YumCut admin accounts are allowed for campaign testing without changing their consent state.
 - Postal renders the plain and HTML bodies and adds the branded preference link, RFC 8058

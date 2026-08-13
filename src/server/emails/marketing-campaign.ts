@@ -18,7 +18,7 @@ const MAX_TEXT_LENGTH = 100_000;
 const DELIVERY_LOOKUP_BATCH_SIZE = 500;
 
 export const POSTAL_MARKETING_CAMPAIGN_USAGE = `Usage:
-  npm run emails:campaign -- --all --campaign-id <id> --subject <subject> (--text <text> | --text-file <path>) --dry-run
+  npm run emails:campaign -- --all [--language <code>] --campaign-id <id> --subject <subject> (--text <text> | --text-file <path>) --dry-run
   npm run emails:campaign -- --to <email> [--to <email> ...] --campaign-id <id> --subject <subject> (--text <text> | --text-file <path>) --dry-run
 
 Replace --dry-run with --confirm-send to send. The default delay is 2000 ms.
@@ -29,6 +29,7 @@ export type PostalMarketingCampaignOptions = {
   all: boolean;
   recipients: string[];
   campaignId: string;
+  language: string | null;
   subject: string;
   text: string;
   delayMs: number;
@@ -38,6 +39,7 @@ export type PostalMarketingCampaignOptions = {
 
 export type PostalMarketingCampaignResult = {
   audience: string;
+  language: string | null;
   requested: number | 'all';
   eligible: number;
   ineligible: number;
@@ -68,7 +70,12 @@ type CampaignSendInput = SendPostalEmailInput & {
 };
 
 type CampaignDependencies = {
-  findContacts: (input: { all: boolean; recipients: string[]; audience: string }) => Promise<CampaignContact[]>;
+  findContacts: (input: {
+    all: boolean;
+    recipients: string[];
+    audience: string;
+    language: string | null;
+  }) => Promise<CampaignContact[]>;
   findDeliveries: (providerEventIds: string[]) => Promise<DeliveryRow[]>;
   claimDelivery: (input: {
     providerEventId: string;
@@ -111,7 +118,7 @@ function oneOption(args: string[], name: string): string | undefined {
 
 function validateKnownArguments(args: string[]): void {
   const flags = new Set(['--all', '--dry-run', '--confirm-send', '--retry-failed', '--help']);
-  const options = new Set(['--to', '--campaign-id', '--subject', '--text', '--text-file', '--delay-ms']);
+  const options = new Set(['--to', '--campaign-id', '--language', '--subject', '--text', '--text-file', '--delay-ms']);
 
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index] ?? '';
@@ -135,6 +142,15 @@ function parseCampaignId(value: string | undefined): string {
   const normalized = value?.trim().toLowerCase() ?? '';
   if (!/^[a-z0-9][a-z0-9._-]{2,63}$/.test(normalized)) {
     throw new Error('--campaign-id must contain 3-64 lowercase letters, numbers, dots, underscores, or hyphens.');
+  }
+  return normalized;
+}
+
+function parseLanguage(value: string | undefined): string | null {
+  if (!value) return null;
+  const normalized = value.trim().toLowerCase().replace(/_/g, '-').split('-')[0] ?? '';
+  if (!/^[a-z]{2,8}$/.test(normalized)) {
+    throw new Error('--language must be a valid language code such as en or ru.');
   }
   return normalized;
 }
@@ -182,6 +198,7 @@ export async function parsePostalMarketingCampaignArgs(
     all,
     recipients,
     campaignId: parseCampaignId(oneOption(args, '--campaign-id')),
+    language: parseLanguage(oneOption(args, '--language')),
     subject,
     text: normalizedText,
     delayMs: parseDelay(oneOption(args, '--delay-ms')),
@@ -213,6 +230,7 @@ const defaultDependencies: CampaignDependencies = {
     const contacts = await prisma.emailContact.findMany({
       where: {
         audience: input.audience,
+        ...(input.language ? { preferredLanguage: input.language } : {}),
         ...(input.all ? {} : { email: { in: input.recipients } }),
       },
       select: {
@@ -319,6 +337,7 @@ export async function runPostalMarketingCampaign(
     all: options.all,
     recipients: options.recipients,
     audience,
+    language: options.language,
   });
   const eligible = contacts.filter((contact) => (
     (contact.marketingSubscribed || contact.allowUnsubscribedMarketingTest) && !contact.suppressedAt
@@ -335,6 +354,7 @@ export async function runPostalMarketingCampaign(
   });
   const result: PostalMarketingCampaignResult = {
     audience,
+    language: options.language,
     requested: options.all ? 'all' : options.recipients.length,
     eligible: eligible.length,
     ineligible,
@@ -346,7 +366,7 @@ export async function runPostalMarketingCampaign(
     dryRun: options.dryRun,
   };
 
-  dependencies.log(`[campaign] id=${options.campaignId} audience=${audience} eligible=${result.eligible} ineligible=${result.ineligible} alreadyProcessed=${result.alreadyProcessed} selected=${result.selected} delayMs=${options.delayMs} dryRun=${options.dryRun}`);
+  dependencies.log(`[campaign] id=${options.campaignId} audience=${audience} language=${options.language ?? 'all'} eligible=${result.eligible} ineligible=${result.ineligible} alreadyProcessed=${result.alreadyProcessed} selected=${result.selected} delayMs=${options.delayMs} dryRun=${options.dryRun}`);
   if (options.dryRun || selected.length === 0) return result;
 
   for (let index = 0; index < selected.length; index += 1) {

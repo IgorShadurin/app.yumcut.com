@@ -40,6 +40,7 @@ function options(overrides: Partial<Awaited<ReturnType<typeof parsePostalMarketi
     all: false,
     recipients: ['first@example.com', 'second@example.com'],
     campaignId: 'august-update',
+    language: null,
     subject: 'A product update',
     text: 'Hello from YumCut.',
     delayMs: 2_000,
@@ -71,12 +72,14 @@ describe('Postal marketing campaign arguments', () => {
       '--to', 'FIRST@example.com',
       '--to=second@example.com',
       '--campaign-id', 'august-update',
+      '--language', 'RU-ru',
       '--subject', 'Product update',
       '--text', 'Hello',
       '--dry-run',
     ])).resolves.toMatchObject({
       all: false,
       recipients: ['first@example.com', 'second@example.com'],
+      language: 'ru',
       delayMs: 2_000,
       dryRun: true,
     });
@@ -95,6 +98,7 @@ describe('Postal marketing campaign arguments', () => {
       '--confirm-send',
     ], directory)).resolves.toMatchObject({
       all: true,
+      language: null,
       text: 'Line one\n\nLine two',
       dryRun: false,
     });
@@ -134,6 +138,28 @@ describe('Postal marketing campaign execution', () => {
     expect(result).toMatchObject({ eligible: 1, ineligible: 2, selected: 1, sent: 0, dryRun: true });
     expect(send).not.toHaveBeenCalled();
     expect(claimDelivery).not.toHaveBeenCalled();
+  });
+
+  it('passes the selected language to contact discovery and reports it', async () => {
+    const findContacts = vi.fn(async () => [contact('contact-ru', 'first@example.com')]);
+    const result = await runPostalMarketingCampaign(options({
+      all: true,
+      recipients: [],
+      language: 'ru',
+      dryRun: true,
+    }), {
+      findContacts,
+      findDeliveries: vi.fn(async () => []),
+      log: vi.fn(),
+    });
+
+    expect(findContacts).toHaveBeenCalledWith({
+      all: true,
+      recipients: [],
+      audience: 'yumcut',
+      language: 'ru',
+    });
+    expect(result.language).toBe('ru');
   });
 
   it('sends through Postal as marketing mail and waits two seconds between recipients', async () => {

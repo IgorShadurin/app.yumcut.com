@@ -209,6 +209,7 @@ Create the body in a UTF-8 text file, then preview a campaign without sending:
 ```bash
 npm run emails:campaign -- \
   --all \
+  --language "en" \
   --campaign-id "2026-08-product-update" \
   --subject "What is new in YumCut" \
   --text-file "/absolute/path/campaign.txt" \
@@ -218,6 +219,11 @@ npm run emails:campaign -- \
 After checking the eligible and selected counts, replace `--dry-run` with `--confirm-send`. The
 default delay is 2,000 milliseconds between recipients. It can be changed with `--delay-ms`, but a
 slower rate is recommended while warming the Postal IP.
+
+For localized production campaigns, use `--language ru` or `--language en` with `--all`. The
+filter matches the local contact's preferred language, so a Russian body is never sent to the
+English contact segment (and vice versa). The CLI prints one status line per attempted recipient
+and a final JSON summary with eligible, selected, sent, skipped, and failed counts.
 
 For a test or a limited recipient list, repeat `--to` (or provide comma-separated addresses):
 
