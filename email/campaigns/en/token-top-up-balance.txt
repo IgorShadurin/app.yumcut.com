@@ -1,0 +1,17 @@
+Hi,
+
+You can now top up your YumCut token balance separately, without starting, canceling, or changing a subscription.
+
+One-time packages are available:
+- 75 tokens — $2.99
+- 750 tokens — $19.99
+- 1,500 tokens — $34.99
+
+This is especially useful for high-demand projects when you need more tokens right away and do not want to change your plan or wait for the next subscription renewal.
+
+Choose a package on your account page:
+https://app.yumcut.com/account
+
+After payment, the tokens will be added to your balance automatically. If you have an active subscription, it will continue working as usual.
+
+- Igor
