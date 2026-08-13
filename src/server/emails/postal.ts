@@ -160,7 +160,10 @@ export async function recordPostalWebhook(envelope: PostalWebhookEnvelope): Prom
   return { handled: true };
 }
 
-export async function sendPostalEmail(input: SendPostalEmailInput): Promise<PostalSendResult> {
+async function sendPostalEmailInternal(
+  input: SendPostalEmailInput,
+  allowUnsubscribedMarketingTest: boolean,
+): Promise<PostalSendResult> {
   const marketing = input.marketing ?? false;
 
   try {
@@ -178,7 +181,7 @@ export async function sendPostalEmail(input: SendPostalEmailInput): Promise<Post
     if (contact.suppressedAt) {
       return { ok: true, skipped: true, reason: 'suppressed', id: contact.id };
     }
-    if (marketing && !contact.marketingSubscribed) {
+    if (marketing && !contact.marketingSubscribed && !allowUnsubscribedMarketingTest) {
       return { ok: true, skipped: true, reason: 'unsubscribed', id: contact.id };
     }
 
@@ -222,4 +225,14 @@ export async function sendPostalEmail(input: SendPostalEmailInput): Promise<Post
   } catch (error) {
     return { ok: false, error: stringifyError(error) };
   }
+}
+
+export function sendPostalEmail(input: SendPostalEmailInput): Promise<PostalSendResult> {
+  return sendPostalEmailInternal(input, false);
+}
+
+export function sendPostalMarketingTestEmail(
+  input: Omit<SendPostalEmailInput, 'marketing'>,
+): Promise<PostalSendResult> {
+  return sendPostalEmailInternal({ ...input, marketing: true }, true);
 }

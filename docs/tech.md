@@ -197,6 +197,48 @@ Local/script alternative:
 npm run emails:planned:send
 ```
 
+#### Command-line Postal marketing campaigns
+
+Run non-hardcoded marketing campaigns from the production checkout with `emails:campaign`. The
+command always calls Postal directly; it does not use `EMAIL_SEND_PROVIDER` or Resend. Recipients
+must already exist in the local YumCut audience with active marketing consent and no hard
+suppression. Every message includes the branded preference link and one-click unsubscribe headers.
+
+Create the body in a UTF-8 text file, then preview a campaign without sending:
+
+```bash
+npm run emails:campaign -- \
+  --all \
+  --campaign-id "2026-08-product-update" \
+  --subject "What is new in YumCut" \
+  --text-file "/absolute/path/campaign.txt" \
+  --dry-run
+```
+
+After checking the eligible and selected counts, replace `--dry-run` with `--confirm-send`. The
+default delay is 2,000 milliseconds between recipients. It can be changed with `--delay-ms`, but a
+slower rate is recommended while warming the Postal IP.
+
+For a test or a limited recipient list, repeat `--to` (or provide comma-separated addresses):
+
+```bash
+npm run emails:campaign -- \
+  --to "igor.shadurin@gmail.com" \
+  --campaign-id "2026-08-product-update-test" \
+  --subject "What is new in YumCut" \
+  --text-file "/absolute/path/campaign.txt" \
+  --dry-run
+```
+
+Inline text is supported with `--text "..."`. Campaign content is never stored in the script.
+An explicit `--to` address must normally be a subscribed, non-suppressed contact. A non-suppressed
+YumCut admin account is also allowed as a campaign test recipient without changing that account's
+marketing consent; it still receives the real preference link and one-click unsubscribe headers.
+`--campaign-id` provides recipient-level duplicate protection: rerunning the same ID skips already
+processed contacts and continues unfinished ones. Add `--retry-failed` only when intentionally
+retrying contacts recorded as failed. The command refuses to send unless `--confirm-send` is
+present. Run `npm run emails:campaign -- --help` for the short usage summary.
+
 Inbound receiving webhook endpoint:
 - `POST https://app.yumcut.com/api/resend/inbound`
 

@@ -17,6 +17,7 @@
     "telegram:webhook:set": "tsx scripts/set-telegram-webhook.ts",
     "telegram:poll": "tsx scripts/telegram-polling-worker.ts",
     "emails:planned:send": "tsx scripts/send-planned-emails.ts",
+    "emails:campaign": "tsx scripts/send-marketing-campaign.ts",
     "emails:resend:provision": "tsx scripts/provision-resend-marketing.ts",
     "emails:migrate:plunk-to-local": "tsx scripts/migrate-plunk-contacts-to-local.ts",
     "emails:migrate:resend-to-local": "tsx scripts/migrate-resend-history-to-local.ts",

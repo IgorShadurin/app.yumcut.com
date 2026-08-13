@@ -22,7 +22,7 @@ vi.mock('@/server/emails/contacts', () => ({
 }));
 vi.stubGlobal('fetch', fetchMock);
 
-const { sendPostalEmail } = await import('@/server/emails/postal');
+const { sendPostalEmail, sendPostalMarketingTestEmail } = await import('@/server/emails/postal');
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -48,6 +48,22 @@ describe('Postal email delivery', () => {
     await expect(sendPostalEmail({ to: 'user@example.com', subject: 'News', text: 'News', marketing: true }))
       .resolves.toEqual({ ok: true, skipped: true, reason: 'unsubscribed', id: 'contact-2' });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('allows an explicit unsubscribed admin test without changing consent', async () => {
+    state.ensureContact.mockResolvedValue({ id: 'contact-2', preferenceToken: 'token', marketingSubscribed: false, suppressedAt: null });
+    await expect(sendPostalMarketingTestEmail({
+      to: 'admin@example.com',
+      subject: 'Campaign test',
+      text: 'Preview',
+    })).resolves.toEqual({ ok: true, id: 'postal-message-1' });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(state.ensureContact).toHaveBeenCalledWith(expect.objectContaining({ subscribedOnCreate: false }));
+    const payload = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(payload.headers).toMatchObject({
+      'List-Unsubscribe': '<https://mail.yumcut.com/unsubscribe/token>',
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    });
   });
 
   it('sends transactional mail after marketing opt-out without an unsubscribe footer', async () => {
