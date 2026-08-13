@@ -60,6 +60,15 @@ type CampaignContact = {
   allowUnsubscribedMarketingTest: boolean;
 };
 
+export function sortCampaignContactsOldestFirst<T extends Pick<CampaignContact, 'id' | 'createdAt'>>(
+  contacts: T[],
+): T[] {
+  return [...contacts].sort((left, right) => {
+    const dateDifference = left.createdAt.getTime() - right.createdAt.getTime();
+    return dateDifference || left.id.localeCompare(right.id);
+  });
+}
+
 type DeliveryRow = {
   providerEventId: string;
   eventType: string;
@@ -239,11 +248,16 @@ const defaultDependencies: CampaignDependencies = {
         marketingSubscribed: true,
         suppressedAt: true,
         createdAt: true,
+        user: { select: { createdAt: true } },
       },
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      orderBy: { id: 'asc' },
     });
+    const contactsOldestFirst = sortCampaignContactsOldestFirst(contacts.map(({ user, ...contact }) => ({
+      ...contact,
+      createdAt: user?.createdAt ?? contact.createdAt,
+    })));
     if (input.all) {
-      return contacts.map((contact) => ({ ...contact, allowUnsubscribedMarketingTest: false }));
+      return contactsOldestFirst.map((contact) => ({ ...contact, allowUnsubscribedMarketingTest: false }));
     }
 
     const adminUsers = await prisma.user.findMany({
@@ -256,9 +270,9 @@ const defaultDependencies: CampaignDependencies = {
       select: { id: true, email: true, createdAt: true },
     });
     const adminByEmail = new Map(adminUsers.map((user) => [user.email.trim().toLowerCase(), user]));
-    const contactEmails = new Set(contacts.map((contact) => contact.email));
-    return [
-      ...contacts.map((contact) => ({
+    const contactEmails = new Set(contactsOldestFirst.map((contact) => contact.email));
+    return sortCampaignContactsOldestFirst([
+      ...contactsOldestFirst.map((contact) => ({
         ...contact,
         allowUnsubscribedMarketingTest: adminByEmail.has(contact.email),
       })),
@@ -272,7 +286,7 @@ const defaultDependencies: CampaignDependencies = {
           createdAt: user.createdAt,
           allowUnsubscribedMarketingTest: true,
         })),
-    ];
+    ]);
   },
   async findDeliveries(providerEventIds) {
     const deliveries: DeliveryRow[] = [];

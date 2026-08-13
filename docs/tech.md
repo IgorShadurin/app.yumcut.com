@@ -224,6 +224,8 @@ For localized production campaigns, use `--language ru` or `--language en` with 
 filter matches the local contact's preferred language, so a Russian body is never sent to the
 English contact segment (and vice versa). The CLI prints one status line per attempted recipient
 and a final JSON summary with eligible, selected, sent, skipped, and failed counts.
+Recipients are processed oldest-user-first according to `User.createdAt`; this avoids migration or
+contact-sync timestamps making newly imported contact rows appear newer than the underlying user.
 
 For a test or a limited recipient list, repeat `--to` (or provide comma-separated addresses):
 

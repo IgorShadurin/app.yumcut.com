@@ -26,7 +26,11 @@ vi.mock('@/server/emails/postal', () => ({
   sendPostalMarketingTestEmail: vi.fn(),
 }));
 
-const { parsePostalMarketingCampaignArgs, runPostalMarketingCampaign } = await import('@/server/emails/marketing-campaign');
+const {
+  parsePostalMarketingCampaignArgs,
+  runPostalMarketingCampaign,
+  sortCampaignContactsOldestFirst,
+} = await import('@/server/emails/marketing-campaign');
 
 const temporaryDirectories: string[] = [];
 
@@ -118,6 +122,22 @@ describe('Postal marketing campaign arguments', () => {
 });
 
 describe('Postal marketing campaign execution', () => {
+  it('orders recipients from the oldest registration date with a stable ID tie-breaker', () => {
+    const sorted = sortCampaignContactsOldestFirst([
+      { id: 'contact-new', createdAt: new Date('2026-08-12T00:00:00Z') },
+      { id: 'contact-old-b', createdAt: new Date('2025-01-01T00:00:00Z') },
+      { id: 'contact-old-a', createdAt: new Date('2025-01-01T00:00:00Z') },
+      { id: 'contact-middle', createdAt: new Date('2026-01-01T00:00:00Z') },
+    ]);
+
+    expect(sorted.map((contact) => contact.id)).toEqual([
+      'contact-old-a',
+      'contact-old-b',
+      'contact-middle',
+      'contact-new',
+    ]);
+  });
+
   it('dry-runs only subscribed, non-suppressed contacts without sending or claiming', async () => {
     const send = vi.fn();
     const claimDelivery = vi.fn();

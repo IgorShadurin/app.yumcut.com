@@ -82,6 +82,8 @@ Operational rules:
 
 - `--all` means all locally subscribed, non-suppressed contacts in the configured YumCut audience,
   never every raw user email.
+- Production recipients are processed oldest-user-first using `User.createdAt`. For contacts not
+  linked to a user, `EmailContact.createdAt` is the fallback; IDs provide deterministic tie-breaking.
 - Use `--language en` or `--language ru` with `--all` when campaign content is localized. The
   filter matches `EmailContact.preferredLanguage`; unknown languages are not silently included.
 - Explicit `--to` recipients must normally be subscribed and non-suppressed. Non-suppressed
