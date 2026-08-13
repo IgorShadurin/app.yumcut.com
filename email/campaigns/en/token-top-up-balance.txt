@@ -1,12 +1,10 @@
 Hi,
 
-You can now buy extra YumCut tokens anytime. No subscription changes are needed.
+You can now buy extra tokens in YumCut without changing your subscription.
 
-This is useful for high-demand projects when you need more tokens right away.
-
-Choose a one-time token package:
+If you need more tokens for a project, choose a one-time package:
 https://app.yumcut.com/account
 
-The tokens will be added automatically. Your active subscription will continue as usual.
+The tokens will be added to your balance after payment.
 
 - Igor
