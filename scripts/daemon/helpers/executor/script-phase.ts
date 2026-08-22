@@ -288,7 +288,14 @@ export async function handleScriptPhase(args: ScriptPhaseArgs) {
       });
     }
 
-    const activeLanguages = projectLanguages.filter((code) => !failedTranslations.includes(code));
+    // Promise.all preserves the input result order, but these arrays are filled
+    // as individual translations complete. Normalize them back to the project
+    // language order so status payloads and downstream processing are stable.
+    const successfulTranslationSet = new Set(successfulTranslations);
+    const failedTranslationSet = new Set(failedTranslations);
+    const orderedSuccessfulTranslations = translationTargets.filter((code) => successfulTranslationSet.has(code));
+    const orderedFailedTranslations = translationTargets.filter((code) => failedTranslationSet.has(code));
+    const activeLanguages = projectLanguages.filter((code) => !failedTranslationSet.has(code));
     if (activeLanguages.length === 0) {
       log.error('Script phase completed with no active languages', { projectId });
       const failure = new Error('Script generation failed for all project languages');
@@ -305,16 +312,16 @@ export async function handleScriptPhase(args: ScriptPhaseArgs) {
       await setStatus(projectId, ProjectStatus.ProcessAudio, message, {
         primaryLanguage: normalizedSourceLanguage,
         scriptLanguages: activeLanguages,
-        translatedLanguages: successfulTranslations,
-        failedLanguages: failedTranslations,
+        translatedLanguages: orderedSuccessfulTranslations,
+        failedLanguages: orderedFailedTranslations,
       });
     } else {
       const message = isRefinement ? 'Refined script ready for validation' : 'Script ready for validation';
       await setStatus(projectId, ProjectStatus.ProcessScriptValidate, message, {
         primaryLanguage: normalizedSourceLanguage,
         scriptLanguages: activeLanguages,
-        translatedLanguages: successfulTranslations,
-        failedLanguages: failedTranslations,
+        translatedLanguages: orderedSuccessfulTranslations,
+        failedLanguages: orderedFailedTranslations,
       });
     }
   } catch (err: any) {
