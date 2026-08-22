@@ -406,6 +406,9 @@ export async function runPostalMarketingCampaign(
         subject: options.subject,
         text: options.text,
         marketing: true,
+        headers: {
+          'Feedback-ID': `${options.campaignId}:yumcut:marketing:yumcutmail`,
+        },
         allowUnsubscribedMarketingTest: contact.allowUnsubscribedMarketingTest,
         idempotencyKey: providerEventId,
       });

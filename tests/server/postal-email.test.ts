@@ -38,6 +38,7 @@ describe('Postal email delivery', () => {
     expect(payload.headers).toMatchObject({
       'List-Unsubscribe': '<https://mail.yumcut.com/unsubscribe/11111111-1111-4111-8111-111111111111>',
       'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      'Feedback-ID': 'general:yumcut:marketing:yumcutmail',
       'X-YumCut-Idempotency-Key': 'planned-123',
     });
     expect(payload.html_body).toContain('/manage/11111111-1111-4111-8111-111111111111');
@@ -63,6 +64,7 @@ describe('Postal email delivery', () => {
     expect(payload.headers).toMatchObject({
       'List-Unsubscribe': '<https://mail.yumcut.com/unsubscribe/token>',
       'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      'Feedback-ID': 'general:yumcut:marketing:yumcutmail',
     });
   });
 

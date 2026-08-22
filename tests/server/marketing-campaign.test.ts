@@ -208,6 +208,9 @@ describe('Postal marketing campaign execution', () => {
       subject: 'A product update',
       text: 'Hello from YumCut.',
       marketing: true,
+      headers: {
+        'Feedback-ID': 'august-update:yumcut:marketing:yumcutmail',
+      },
       allowUnsubscribedMarketingTest: false,
       idempotencyKey: expect.stringMatching(/^campaign:/),
     }));

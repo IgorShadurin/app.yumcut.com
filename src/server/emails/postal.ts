@@ -191,9 +191,12 @@ async function sendPostalEmailInternal(
       contactId: marketing ? contact.preferenceToken : undefined,
       preferencesOrigin: preferencesUrl(),
     });
+    const customHeaders = validatedHeaders(input.headers);
+    const hasFeedbackId = Object.keys(customHeaders).some((name) => name.toLowerCase() === 'feedback-id');
     const headers = {
       ...content.headers,
-      ...validatedHeaders(input.headers),
+      ...(marketing && !hasFeedbackId ? { 'Feedback-ID': 'general:yumcut:marketing:yumcutmail' } : {}),
+      ...customHeaders,
       ...(input.idempotencyKey ? { 'X-YumCut-Idempotency-Key': input.idempotencyKey } : {}),
     };
 
