@@ -31,59 +31,41 @@ export function TokenLowBalanceAlert({
             {tokenBalance < projectCost ? (
               <>
                 <span className="font-semibold">Не хватает токенов!</span>{' '}
-                Можете купить их через{' '}
+                Пополните баланс через{' '}
                 <a
-                  className="underline underline-offset-2 hover:text-rose-800 dark:hover:text-rose-100"
+                  className="cursor-pointer underline underline-offset-2 hover:text-rose-800 dark:hover:text-rose-100"
+                  href="/account"
+                >
+                  Stripe
+                </a>{' '}
+                или купите токены через{' '}
+                <a
+                  className="cursor-pointer underline underline-offset-2 hover:text-rose-800 dark:hover:text-rose-100"
                   href="https://apps.apple.com/app/yumcut-ai-video-generator/id6755393914"
                   rel="noreferrer"
                   target="_blank"
                 >
-                  iOS приложение
-                </a>
-                , или напишите в{' '}
-                <a
-                  className="underline underline-offset-2 hover:text-rose-800 dark:hover:text-rose-100"
-                  href="http://t.me/IgorDvlpr"
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  Telegram
-                </a>
-                , или на{' '}
-                <a
-                  className="underline underline-offset-2 hover:text-rose-800 dark:hover:text-rose-100"
-                  href="mailto:igor.shadurin@gmail.com"
-                >
-                  email
+                  iOS-приложение
                 </a>
                 .
               </>
             ) : (
               <>
-                Остался минимальный баланс. Купить токены можно через{' '}
+                Остался минимальный баланс. Пополните его через{' '}
                 <a
-                  className="underline underline-offset-2 hover:text-rose-800 dark:hover:text-rose-100"
+                  className="cursor-pointer underline underline-offset-2 hover:text-rose-800 dark:hover:text-rose-100"
+                  href="/account"
+                >
+                  Stripe
+                </a>{' '}
+                или купите токены через{' '}
+                <a
+                  className="cursor-pointer underline underline-offset-2 hover:text-rose-800 dark:hover:text-rose-100"
                   href="https://apps.apple.com/app/yumcut-ai-video-generator/id6755393914"
                   rel="noreferrer"
                   target="_blank"
                 >
-                  iOS приложение
-                </a>
-                , в{' '}
-                <a
-                  className="underline underline-offset-2 hover:text-rose-800 dark:hover:text-rose-100"
-                  href="http://t.me/IgorDvlpr"
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  Telegram
-                </a>{' '}
-                или по{' '}
-                <a
-                  className="underline underline-offset-2 hover:text-rose-800 dark:hover:text-rose-100"
-                  href="mailto:igor.shadurin@gmail.com"
-                >
-                  email
+                  iOS-приложение
                 </a>
                 .
               </>
