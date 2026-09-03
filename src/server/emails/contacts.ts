@@ -37,6 +37,24 @@ function cleanLanguage(value?: string | null): string | null {
   return /^[a-z]{2,8}$/.test(normalized) ? normalized : null;
 }
 
+function isEmailContactIdentityConflict(error: unknown): boolean {
+  if (!error || typeof error !== 'object' || !('code' in error) || error.code !== 'P2002') {
+    return false;
+  }
+
+  const target = 'meta' in error
+    ? (error.meta as { target?: unknown } | undefined)?.target
+    : undefined;
+
+  if (Array.isArray(target)) {
+    return target.includes('audience') && target.includes('email');
+  }
+
+  return typeof target === 'string'
+    && target.includes('audience')
+    && target.includes('email');
+}
+
 export async function ensureEmailContact(input: {
   email: string;
   userId?: string | null;
@@ -53,28 +71,41 @@ export async function ensureEmailContact(input: {
   const subscribedOnCreate = input.subscribedOnCreate ?? false;
   const now = new Date();
   const language = cleanLanguage(input.preferredLanguage);
+  const update = {
+    ...(input.userId ? { userId: input.userId } : {}),
+    ...(input.name?.trim() ? { name: input.name.trim().slice(0, 191) } : {}),
+    ...(language ? { preferredLanguage: language } : {}),
+    ...(input.metadata !== undefined ? { metadata: input.metadata } : {}),
+  };
 
-  return prisma.emailContact.upsert({
-    where: { audience_email: { audience, email } },
-    update: {
+  try {
+    return await prisma.emailContact.upsert({
+      where: { audience_email: { audience, email } },
+      update,
+      create: {
+        audience,
+        email,
         ...(input.userId ? { userId: input.userId } : {}),
         ...(input.name?.trim() ? { name: input.name.trim().slice(0, 191) } : {}),
         ...(language ? { preferredLanguage: language } : {}),
+        marketingSubscribed: subscribedOnCreate,
+        subscribedAt: subscribedOnCreate ? now : null,
+        unsubscribedAt: subscribedOnCreate ? null : now,
+        consentSource: input.consentSource?.trim().slice(0, 64) || null,
         ...(input.metadata !== undefined ? { metadata: input.metadata } : {}),
-    },
-    create: {
-      audience,
-      email,
-      ...(input.userId ? { userId: input.userId } : {}),
-      ...(input.name?.trim() ? { name: input.name.trim().slice(0, 191) } : {}),
-      ...(language ? { preferredLanguage: language } : {}),
-      marketingSubscribed: subscribedOnCreate,
-      subscribedAt: subscribedOnCreate ? now : null,
-      unsubscribedAt: subscribedOnCreate ? null : now,
-      consentSource: input.consentSource?.trim().slice(0, 64) || null,
-      ...(input.metadata !== undefined ? { metadata: input.metadata } : {}),
-    },
-  });
+      },
+    });
+  } catch (error) {
+    if (!isEmailContactIdentityConflict(error)) throw error;
+
+    // Two independent post-registration jobs can both observe a missing contact.
+    // The losing upsert gets P2002 after the other job inserts it, so finish the
+    // intended upsert by updating the row that now exists.
+    return prisma.emailContact.update({
+      where: { audience_email: { audience, email } },
+      data: update,
+    });
+  }
 }
 
 export async function addUserToEmailContacts(input: EmailContactUserInput): Promise<EmailContactSyncResult> {

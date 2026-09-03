@@ -44,6 +44,35 @@ describe('local email contacts', () => {
     expect(state.upsert.mock.calls[0]?.[0]?.update).toEqual({ name: 'User' });
   });
 
+  it('recovers when another request creates the same contact concurrently', async () => {
+    const contact = { id: 'contact-1', email: 'user@example.com' };
+    state.upsert.mockRejectedValue({
+      code: 'P2002',
+      meta: { target: 'EmailContact_audience_email_key' },
+    });
+    state.update.mockResolvedValue(contact);
+
+    await expect(ensureEmailContact({
+      email: 'User@example.com',
+      userId: 'user-1',
+      name: 'User',
+      subscribedOnCreate: true,
+    })).resolves.toEqual(contact);
+
+    expect(state.update).toHaveBeenCalledWith({
+      where: { audience_email: { audience: 'yumcut', email: 'user@example.com' } },
+      data: { userId: 'user-1', name: 'User' },
+    });
+  });
+
+  it('does not hide unrelated upsert failures', async () => {
+    const error = { code: 'P2002', meta: { target: 'EmailContact_preferenceToken_key' } };
+    state.upsert.mockRejectedValue(error);
+
+    await expect(ensureEmailContact({ email: 'user@example.com' })).rejects.toBe(error);
+    expect(state.update).not.toHaveBeenCalled();
+  });
+
   it('does not re-enable a hard-suppressed address', async () => {
     const contact = { id: 'contact-1', email: 'user@example.com', suppressedAt: new Date(), marketingSubscribed: false };
     state.findFirst.mockResolvedValue(contact);
