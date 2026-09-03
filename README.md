@@ -141,6 +141,20 @@ YumCut focuses on being the open-source/free analog for end-to-end short vertica
 
 Technical setup and implementation details were moved to [docs/tech.md](docs/tech.md).
 
+## Publishing Your Videos
+
+Once your video is generated, publish it to TikTok, YouTube Shorts, and Instagram Reels using [Upload-Post](https://upload-post.com):
+
+```bash
+curl -X POST https://api.upload-post.com/upload \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -F "video=@output/video.mp4" \
+  -F "title=Your Video Title" \
+  -F "platforms=tiktok,youtube,instagram"
+```
+
+Upload-Post provides a single API to publish videos across all major platforms, completing your end-to-end short-form production workflow. [Get your API key here](https://upload-post.com).
+
 ## Free Clippie AI Alternative
 
 If you are looking for a free Clippie AI alternative, YumCut is designed as an open-source path for similar short-form workflows:
