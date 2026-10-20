@@ -94,3 +94,64 @@ PM2 reload without downtime requires cluster mode with at least two instances. T
 If the app was originally started with `pm2 start "npm run start -- -p 3111" --name app.yumcut.com`, the first run moves it to the generated PM2 config. Future deploys use PM2 reload against that config.
 
 Prisma migrations run by default before the symlink switch. Keep production migrations backward compatible because database migrations cannot be undone by a symlink rollback.
+
+## Postal SMTP certificate renewal (Coolify host)
+
+The separate Postal host serves `smtp.copymyui.com` at `204.168.170.212`.
+Certbot renews its certificate using a standalone HTTP-01 listener on
+`10.0.1.1:8081`. Traefik forwards only the SMTP hostname's
+`/.well-known/acme-challenge/` requests to that listener through
+`/data/coolify/proxy/dynamic/03-smtp-certificate.yml`.
+
+The proxy must retain this static command:
+
+```yaml
+- '--entrypoints.http.allowacmebypass=true'
+```
+
+Without it, Traefik's internal ACME router takes precedence over the Certbot
+router and returns 404 for Certbot's tokens. Increasing the custom router's
+priority alone does not fix that conflict. Traefik's own certificate resolver
+remains enabled for its other hostnames.
+
+Preserve this command in **both** `/data/coolify/proxy/docker-compose.yml` and
+Coolify's saved proxy configuration (`Server.proxy.last_saved_proxy_configuration`).
+Coolify uses its saved configuration when rebuilding the proxy. Back up both
+before editing, preserve unrelated settings, and recreate the proxy to apply
+static command changes. A proxy recreation briefly interrupts ingress.
+See [Traefik's ACME routing documentation](https://doc.traefik.io/traefik/v3.6/reference/install-configuration/entrypoints/#allowacmebypass).
+
+Run these checks as root on the Postal host after proxy configuration changes:
+
+```bash
+docker inspect coolify-proxy --format '{{json .Config.Cmd}}'
+certbot renew --cert-name smtp.copymyui.com --dry-run --no-random-sleep-on-renew
+systemctl is-active certbot.timer postal-smtp-cert-sync.timer
+```
+
+The dry run uses Let's Encrypt staging and must succeed before a production
+renewal. It does not install a staging certificate. To renew when due:
+
+```bash
+certbot renew --cert-name smtp.copymyui.com --no-random-sleep-on-renew
+openssl x509 -in /opt/postal/config/smtp.cert -noout -subject -dates
+```
+
+The deploy hook `/etc/letsencrypt/renewal-hooks/deploy/postal-smtp-cert-sync`
+invokes `/usr/local/sbin/postal-smtp-cert-sync`. It validates the hostname,
+expiry and key match, installs the certificate and key with mode `0600` and
+owner `999:999`, and restarts only `postal-smtp` when files change.
+`postal-smtp-cert-sync.timer` also runs twice daily.
+
+Verify the certificate actually presented on SMTP port 25 with STARTTLS,
+including hostname and trust validation; checking the file alone is insufficient.
+Check the proxy health and HTTPS responses from `wtf.copymyui.com`,
+`postal.copymyui.com`, and `app.yumcut.com` after a proxy recreation.
+Do not print private keys, ACME account files, or full proxy configuration
+containing credentials when collecting diagnostics.
+
+On 2026-10-20, the missing ACME bypass command was restored in the running
+proxy and both persisted configurations. Staging and production renewal
+succeeded, and a hostname-validated SMTP STARTTLS connection presented the
+renewed certificate, valid until 2027-01-18 17:33:20 UTC. Coolify's custom-command
+extraction also retained the option for future proxy regeneration.
