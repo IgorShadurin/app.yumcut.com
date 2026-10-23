@@ -344,3 +344,29 @@ What happens:
 - Verifies the user exists before adjusting.
 - Records the adjustment using the shared token ledger (transaction type `ADMIN_ADJUSTMENT`) with your optional comment (defaults to “Adjusted by administrator”).
 - Prints the new balance once complete.
+
+## Inbound email copies to the contact mailbox
+
+The signed Resend `email.received` webhook at `/api/resend/inbound` forwards received
+mail through Resend to `CONTACT_EMAIL` in `src/shared/constants/app.ts`. No new
+environment variable or DNS change is required. The existing `RESEND_API_KEY`
+must allow receiving API reads and sending; `RESEND_FROM_EMAIL` must be a verified
+sender. The copy retains complete text/HTML, attachments and inline content IDs.
+Reply-To uses the original Reply-To, falling back to From. Original From/To are
+also retained in `X-Original-*` headers. If no parsed body is available, the raw
+message is attached as `original.eml`.
+
+Existing reply bonuses, Telegram notifications and feedback persistence run
+before forwarding. Forward failures return HTTP 503 so Resend retries; those
+retries may repeat Telegram notifications. Gmail copies use a stable Resend
+idempotency key and durable `EmailDeliveryEvent` records (`inbound.forward.pending`
+and `inbound.forward.sent`). No database migration is needed. If an unconfirmed
+send is over 23 hours old, automatic forwarding stops rather than risking a
+duplicate outside Resend's 24-hour idempotency window. Reconcile it against Resend
+delivery logs before retrying manually. Exhausted webhook retries or quota/size
+errors require operator attention; this is not a separate background queue.
+
+New inbound webhook deliveries are forwarded after deployment; this does not
+backfill previously processed emails. One received email plus one forwarded copy
+uses two Resend transactional quota units. This administrative forwarding is not
+exposed through the user automation API.

@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
+const forwardInboundToContact = vi.hoisted(() => vi.fn());
+vi.mock('@/server/emails/inbound-forward', () => ({ forwardInboundToContact }));
+
 const verifyResendWebhook = vi.hoisted(() => vi.fn());
 const getReceivedEmail = vi.hoisted(() => vi.fn());
 const notifyAdminsWithMessage = vi.hoisted(() => vi.fn());
@@ -35,6 +38,7 @@ const route = await import('@/app/api/resend/inbound/route');
 describe('POST /api/resend/inbound', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    forwardInboundToContact.mockResolvedValue('forward-1');
     notifyAdminsWithMessage.mockResolvedValue(undefined);
     persistInboundFeedback.mockResolvedValue({});
     processInboundReplyBonus.mockResolvedValue({
@@ -83,6 +87,8 @@ describe('POST /api/resend/inbound', () => {
     expect(payload.ok).toBe(true);
     expect(payload.emailId).toBe('email-1');
     expect(payload.forwardedToTelegram).toBe(true);
+    expect(payload.forwardedToEmail).toBe(true);
+    expect(forwardInboundToContact).toHaveBeenCalledWith('email-1');
     expect(payload.snippetSource).toBe('api');
     expect(payload.enriched).toBe(true);
     expect(payload.replyBonus.granted).toBe(false);
@@ -180,5 +186,30 @@ describe('POST /api/resend/inbound', () => {
 
     expect(notifyAdminsWithMessage).toHaveBeenCalledWith(expect.stringContaining('wtfffff'));
     expect(notifyAdminsWithMessage).not.toHaveBeenCalledWith(expect.stringContaining('Welcome to YumCut.'));
+  });
+
+  it('requests retry when forwarding fails after preserving existing processing', async () => {
+    verifyResendWebhook.mockReturnValue({ type: 'email.received', data: { email_id: 'retry-1' } });
+    getReceivedEmail.mockResolvedValue({ from: 'sender@example.com', to: ['hello@yumcut.com'], text: 'hello' });
+    forwardInboundToContact.mockRejectedValueOnce(new Error('rate limited'));
+    const res = await route.POST(new NextRequest('http://localhost/api/resend/inbound', { method: 'POST', body: '{}' }));
+    expect(res.status).toBe(503);
+    expect(processInboundReplyBonus).toHaveBeenCalled();
+    expect(notifyAdminsWithMessage).toHaveBeenCalled();
+    expect(persistInboundFeedback).toHaveBeenCalled();
+  });
+
+  it('does not forward unauthenticated events', async () => {
+    verifyResendWebhook.mockReturnValue(null);
+    const res = await route.POST(makeReq('{}'));
+    expect(res.status).toBe(403);
+    expect(forwardInboundToContact).not.toHaveBeenCalled();
+  });
+
+  it('does not forward outbound events', async () => {
+    verifyResendWebhook.mockReturnValue({ type: 'email.sent', data: { email_id: 'out-1' } });
+    const res = await route.POST(makeReq('{}'));
+    expect(res.status).toBe(200);
+    expect(forwardInboundToContact).not.toHaveBeenCalled();
   });
 });

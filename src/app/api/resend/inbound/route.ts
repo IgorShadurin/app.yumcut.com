@@ -7,6 +7,7 @@ import { extractLatestEmailReply } from '@/server/emails/reply-parser';
 import { processInboundReplyBonus } from '@/server/emails/reply-bonus';
 import { notifyAdminsWithMessage } from '@/server/telegram';
 import { persistInboundFeedback } from '@/server/admin/feedbacks';
+import { forwardInboundToContact } from '@/server/emails/inbound-forward';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -300,9 +301,21 @@ export const POST = withApiError(async function POST(req: NextRequest) {
     forwardedToTelegram: !telegramForwardError,
   });
 
+  // Keep the existing side effects even when Gmail forwarding fails. A non-2xx
+  // response lets Resend retry; forwarding has its own durable deduplication.
+  let forwardedEmailId: string;
+  try {
+    forwardedEmailId = await forwardInboundToContact(emailId);
+  } catch (err) {
+    console.error('Failed to forward inbound email to contact', { emailId, err });
+    return error('INBOUND_FORWARD_FAILED', 'Unable to forward inbound email; retry required', 503);
+  }
+
   return ok({
     ok: true,
     emailId,
+    forwardedToEmail: true,
+    forwardedEmailId,
     enriched: Boolean(received),
     snippetSource: apiSnippet ? 'api' : rawMimeSnippet ? 'raw' : 'none',
     forwardedToTelegram: !telegramForwardError,
