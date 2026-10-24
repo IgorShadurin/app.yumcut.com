@@ -61,8 +61,24 @@ npm lifecycle checks; the host runtime must still be upgraded.
 
 The developer workspace was upgraded from Node 24.11.1 to 24.22.1 using nvm,
 with archive checksum verification and the nvm default set to 24.22.1. Existing
-terminal sessions and processes need to switch/restart to use it. Production SSH at the
-host configured in `.ssh.env` rejected available root and deploy authentication.
-Production runtime version, compromise assessment, Stripe activity review and
-key rotation therefore remain unverified. Repository safeguards alone do not
-resolve the production incident.
+terminal sessions and processes need to switch/restart to use it.
+
+Production was subsequently upgraded through the existing authenticated Termius
+session. Node 24.22.1 and the existing PM2 6.0.14 were installed for `deploy`.
+The three existing fork-mode services (`app.yumcut.com`, `static.yumcut.com`,
+`yumcut-daemon`) were restarted through `pm2-deploy.service`; their saved PATHs
+and the systemd unit now reference the patched runtime. All eight observed live
+Node executables, including PM2 and child processes, resolved to Node 24.22.1.
+The systemd unit is enabled and active, and the newly saved PM2 dump contains
+no references to the old runtime. Backups are retained on the server in
+`/home/deploy/node-security-backup-20261024` with restricted access.
+
+Before restarting, the worker was polling an empty queue and no running job
+record had been updated within the previous hour (the newest was from May).
+After restarting, all three processes were online with zero restart loops;
+app, auth providers and storage returned HTTP 200, and worker queue polling
+returned HTTP 200. One transient HTTP 503 was observed during startup before
+the retry succeeded. Application code and database contents were not changed.
+
+Compromise assessment, Stripe activity review and key rotation remain pending;
+runtime patching alone does not resolve potential prior credential exposure.
