@@ -1,5 +1,10 @@
 # Zero-downtime PM2 deploy
 
+Requires Node.js **24.22.1 or newer in the 24.x LTS line**. See the
+[Node security remediation runbook](node-security.md) for upgrading the host,
+PM2 and workers, verifying running processes, and rotating Stripe keys.
+The deploy script rejects unsupported Node versions before deployment.
+
 This deploy keeps the current app running while a new release is cloned, installed, built, and migrated. Only after that it switches `/var/www/app.yumcut.com/current`, reloads PM2, checks the local app, and rolls back automatically if the healthcheck fails.
 
 Default production path:

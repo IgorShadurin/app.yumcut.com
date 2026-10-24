@@ -46,7 +46,14 @@
     "db:check": "tsx scripts/check-db-connection.ts",
     "tools:convert-video-preview": "tsx scripts/convert-video-preview.ts",
     "characters:migrate-assets-to-storage": "tsx scripts/characters/migrate-assets-to-storage.ts",
-    "welcome:prank-video": "tsx scripts/welcome-prank-video/render.ts"
+    "welcome:prank-video": "tsx scripts/welcome-prank-video/render.ts",
+    "preinstall": "node scripts/check-node-version.cjs",
+    "predev": "node scripts/check-node-version.cjs",
+    "prebuild": "node scripts/check-node-version.cjs",
+    "prestart": "node scripts/check-node-version.cjs",
+    "predaemon": "node scripts/check-node-version.cjs",
+    "prepublish-daemon": "node scripts/check-node-version.cjs",
+    "runtime:check": "node scripts/check-node-version.cjs"
   },
   "dependencies": {
     "@apple/app-store-server-library": "^3.1.0",
@@ -106,5 +113,8 @@
   "overrides": {
     "postcss": "8.5.14",
     "uuid": "11.1.1"
+  },
+  "engines": {
+    "node": ">=24.22.1 <25"
   }
 }

@@ -50,6 +50,9 @@ cleanup() {
   exit "${exit_code}"
 }
 
+require_command node
+node "$(dirname "${BASH_SOURCE[0]}")/../../scripts/check-node-version.cjs"
+
 trap cleanup EXIT
 
 healthcheck() {
@@ -170,6 +173,8 @@ RELEASE_DIR="${RELEASES_DIR}/${RELEASE_ID}"
 
 log "Cloning ${BRANCH} from ${REPO_URL} into ${RELEASE_DIR}"
 git clone --depth 1 --branch "${BRANCH}" "${REPO_URL}" "${RELEASE_DIR}"
+
+node "${RELEASE_DIR}/scripts/check-node-version.cjs"
 
 ln -sfn "${SHARED_ENV}" "${RELEASE_DIR}/.env"
 write_pm2_config "${RELEASE_DIR}"

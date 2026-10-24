@@ -212,9 +212,9 @@ echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"' >> ~/.bashrc
 Install Node 24:
 
 ```bash
-nvm install 24
-nvm use 24
-nvm alias default 24
+nvm install 24.22.1
+nvm use 24.22.1
+nvm alias default 24.22.1
 ```
 
 Check:
