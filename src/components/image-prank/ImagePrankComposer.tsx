@@ -1,5 +1,6 @@
 "use client";
 
+import { PaywallDialog } from '@/components/providers/ShutdownModeProvider';
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, CreditCard, Crown, ImagePlus, Images, Loader2, Trash2, UploadCloud } from 'lucide-react';
@@ -990,7 +991,7 @@ export function ImagePrankComposer({ item }: { item?: ImagePrankCatalogItemDTO |
         </DialogContent>
       </Dialog>
 
-      <Dialog open={paywallOpen} onOpenChange={setPaywallOpen}>
+      <PaywallDialog open={paywallOpen} onOpenChange={setPaywallOpen} cost={tokenCost} balance={tokenBalance}>
         <DialogContent className="w-[calc(100vw-1rem)] sm:max-w-[1040px]">
           <DialogHeader>
             <DialogTitle className="inline-flex items-center gap-2">
@@ -1068,7 +1069,7 @@ export function ImagePrankComposer({ item }: { item?: ImagePrankCatalogItemDTO |
             )}
           </Button>
         </DialogContent>
-      </Dialog>
+      </PaywallDialog>
     </>
   );
 }

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import crypto from 'node:crypto';
 
 const prismaMock = {
@@ -74,6 +74,8 @@ beforeEach(() => {
 });
 
 describe('getOrCreateGuestUser', () => {
+  afterEach(() => vi.unstubAllEnvs());
+
   it('creates a new guest user when device is unknown', async () => {
     prismaMock.guestProfile.findUnique.mockResolvedValue(null);
     const tx = txFactories();
@@ -110,7 +112,16 @@ describe('getOrCreateGuestUser', () => {
     );
   });
 
-  it('reuses existing guest profile and reactivates deleted users', async () => {
+  it('blocks unknown guests before creating or removing any profile in shutdown mode', async () => {
+    vi.stubEnv('SHUTDOWN_MODE', '1');
+    prismaMock.guestProfile.findUnique.mockResolvedValue(null);
+    await expect(getOrCreateGuestUser({ deviceId: 'new-device' })).rejects.toThrow(/new signups/);
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    expect(prismaMock.guestProfile.delete).not.toHaveBeenCalled();
+  });
+
+  it.each(['false', 'true'])('reuses the existing guest profile (shutdown mode %s)', async (mode) => {
+    vi.stubEnv('SHUTDOWN_MODE', mode);
     const existingProfile = {
       id: 'profile-1',
       userId: 'guest-user-2',

@@ -1,3 +1,4 @@
+import { BalanceNotice, useShutdownDate } from '@/components/providers/ShutdownModeProvider';
 import type { AppLanguageCode } from '@/shared/constants/app-language';
 
 type TokenLowBalanceAlertProps = {
@@ -21,12 +22,13 @@ export function TokenLowBalanceAlert({
   minimumProjectSeconds,
   useExact,
 }: TokenLowBalanceAlertProps) {
+  const shutdownDate = useShutdownDate();
   const showRuHowToVideo = language === 'ru' && tokenBalance < projectCost;
 
   return (
     <>
       <div className="mt-3 rounded-md border border-rose-200 bg-rose-50 p-3 text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200 text-sm">
-        {language === 'ru' ? (
+        {shutdownDate ? <BalanceNotice cost={projectCost} balance={tokenBalance} /> : language === 'ru' ? (
           <p>
             {tokenBalance < projectCost ? (
               <>

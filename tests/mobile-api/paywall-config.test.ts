@@ -1,13 +1,22 @@
-import { describe, expect, it } from 'vitest';
-import { NextRequest } from 'next/server';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { SUBSCRIPTION_PLAN_ORDER, getSubscriptionPlanByKey } from '@/shared/constants/subscriptions';
 
 const route = await import('@/app/api/mobile/paywall-config/route');
 
 describe('GET /api/mobile/paywall-config', () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it('withdraws all new offers and reports the last day of access', async () => {
+    vi.stubEnv('SHUTDOWN_MODE', 'true');
+    vi.stubEnv('SHUTDOWN_DATE', '2027-01-31');
+    const res = route.GET();
+    expect(res.headers.get('cache-control')).toBe('no-store');
+    expect(await res.json()).toEqual({ plans: [], purchasesEnabled: false, shutdownDate: '2027-01-31' });
+  });
+
   it('returns public plan max values without auth', async () => {
-    const res = route.GET(new NextRequest('http://localhost/api/mobile/paywall-config'));
+    const res = route.GET();
 
     expect(res.status).toBe(200);
     expect(res.headers.get('cache-control')).toContain('public');

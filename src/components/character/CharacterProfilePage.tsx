@@ -1,5 +1,6 @@
 "use client";
 
+import { PaywallDialog, useShutdownDate, SignupNotice } from '@/components/providers/ShutdownModeProvider';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -302,6 +303,7 @@ export function CharacterProfilePage({
   initialCreationsCount?: number;
 }) {
   const { status } = useSession();
+  const shutdownDate = useShutdownDate();
   const { language } = useAppLanguage();
   const copy = COPY[language];
   const router = useRouter();
@@ -699,7 +701,7 @@ export function CharacterProfilePage({
     }
     if (!hasEnoughTokens) {
       setSelectedPlanKey('monthly');
-      await recordProjectCreationAttemptFromClient(buildAttemptPayload('paywall_shown'));
+      if (!shutdownDate) await recordProjectCreationAttemptFromClient(buildAttemptPayload('paywall_shown'));
       setPaywallOpen(true);
       return;
     }
@@ -999,7 +1001,7 @@ export function CharacterProfilePage({
             <DialogTitle>{copy.authRequiredTitle}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            {copy.authRequiredDescription}
+            <SignupNotice>{copy.authRequiredDescription}</SignupNotice>
           </p>
           <div className="mt-4 space-y-2">
             <AuthActionButton
@@ -1093,7 +1095,7 @@ export function CharacterProfilePage({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={paywallOpen} onOpenChange={setPaywallOpen}>
+      <PaywallDialog open={paywallOpen} onOpenChange={setPaywallOpen} cost={tokenCost} balance={balance}>
         <DialogContent className="w-[calc(100vw-1rem)] sm:max-w-[1040px]">
           <DialogHeader>
             <DialogTitle className="inline-flex items-center gap-2">
@@ -1171,7 +1173,7 @@ export function CharacterProfilePage({
             )}
           </Button>
         </DialogContent>
-      </Dialog>
+      </PaywallDialog>
 
       {showGuestStickyDownloadSection ? (
         <section className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200/80 bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_28px_rgba(0,0,0,0.08)] backdrop-blur dark:border-gray-800 dark:bg-gray-950/95">

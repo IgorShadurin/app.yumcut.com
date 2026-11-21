@@ -1,3 +1,5 @@
+import { ShutdownModeProvider, ShutdownNotice } from '@/components/providers/ShutdownModeProvider';
+import { getShutdownDate } from '@/server/shutdown-mode';
 import type { Metadata, Viewport } from "next";
 import { Suspense } from 'react';
 import { APP_NAME, CONTACT_EMAIL } from '@/shared/constants/app';
@@ -383,6 +385,7 @@ export default async function RootLayout({
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased h-screen overflow-hidden` }>
         <UtmSourceTracker />
+        <ShutdownModeProvider value={getShutdownDate()}>
         <SessionProviders session={session}>
           <AppLanguageProvider initialLanguage={initialAppLanguage} allowStoredOverride={!session?.user}>
             <Suspense fallback={null}>
@@ -393,6 +396,7 @@ export default async function RootLayout({
                 <ProjectsProvider>
                 <div className="h-full flex flex-col">
                   <AppHeader />
+                  <ShutdownNotice />
                   <div className="flex flex-1 min-h-0 overflow-hidden">
                     {/* Hide persistent sidebar on small screens */}
                     <div className="hidden md:block">
@@ -411,6 +415,7 @@ export default async function RootLayout({
             </TokenProvider>
           </AppLanguageProvider>
         </SessionProviders>
+        </ShutdownModeProvider>
       </body>
     </html>
   );

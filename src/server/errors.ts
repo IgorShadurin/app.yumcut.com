@@ -1,3 +1,4 @@
+import { PurchasesClosedError, SignupsClosedError } from '@/server/shutdown-mode';
 import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { InsufficientTokensError } from '@/server/tokens';
@@ -80,6 +81,12 @@ export function normalizeError(e: unknown, human: string): Normalized {
   }
   if (e instanceof Prisma.PrismaClientValidationError) {
     return { status: 400, code: 'PRISMA_VALIDATION', message: `${human}: Invalid data provided.`, details: { raw: e.message } };
+  }
+  if (e instanceof PurchasesClosedError) {
+    return { status: 403, code: 'PURCHASES_CLOSED', message: e.message };
+  }
+  if (e instanceof SignupsClosedError) {
+    return { status: 403, code: 'SIGNUPS_CLOSED', message: e.message };
   }
   if (e instanceof InsufficientTokensError) {
     return { status: e.status, code: e.code, message: `${human}: ${e.message}`, details: e.details };

@@ -1,3 +1,4 @@
+import { assertPurchasesOpen } from '@/server/shutdown-mode';
 import { NextRequest } from 'next/server';
 import { getAuthSession } from '@/server/auth';
 import { withApiError } from '@/server/errors';
@@ -12,6 +13,7 @@ export const POST = withApiError(async function POST(req: NextRequest) {
   const session = await getAuthSession();
   const user = session?.user as { id?: string; email?: string | null } | undefined;
   if (!user?.id) return unauthorized();
+  assertPurchasesOpen();
   if (!isStripeTopUpConfigured()) {
     return error('CONFIG_ERROR', 'Stripe token top-ups are not configured.', 500);
   }

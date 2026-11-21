@@ -1,5 +1,6 @@
 'use client';
 
+import { useShutdownDate } from '@/components/providers/ShutdownModeProvider';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BadgeCheck, CalendarClock, Coins, CreditCard, Loader2, RefreshCcw, Repeat } from 'lucide-react';
 import { toast } from 'sonner';
@@ -36,6 +37,7 @@ type SubscriptionCardCopy = {
   startPlan: string;
   currentPlanButton: string;
   manageBilling: string;
+  cancelSubscription: string;
   refreshing: string;
   refresh: string;
   checkoutCreating: string;
@@ -79,6 +81,7 @@ const COPY: Record<AppLanguageCode, SubscriptionCardCopy> = {
     startPlan: 'Choose plan',
     currentPlanButton: 'Current plan',
     manageBilling: 'Manage billing',
+    cancelSubscription: 'Cancel subscription',
     refreshing: 'Refreshing…',
     refresh: 'Refresh',
     checkoutCreating: 'Opening checkout…',
@@ -120,6 +123,7 @@ const COPY: Record<AppLanguageCode, SubscriptionCardCopy> = {
     startPlan: 'Выбрать план',
     currentPlanButton: 'Текущий план',
     manageBilling: 'Управление оплатой',
+    cancelSubscription: 'Отменить подписку',
     refreshing: 'Обновляем…',
     refresh: 'Обновить',
     checkoutCreating: 'Открываем оплату…',
@@ -162,6 +166,7 @@ export function SubscriptionPlansCard({
   initialStatus: SubscriptionStatusDTO;
   topUpPackages: TokenTopUpPackageUi[];
 }) {
+  const shutdownDate = useShutdownDate();
   const { language } = useAppLanguage();
   const t = COPY[language];
   const pathname = usePathname();
@@ -345,6 +350,9 @@ export function SubscriptionPlansCard({
   const selectedTopUpPackage = topUpPackages.find((tokenPackage) => tokenPackage.key === selectedTopUp);
   const topUpsConfigured = topUpPackages.length > 0 && topUpPackages.every((tokenPackage) => tokenPackage.configured);
 
+  if (shutdownDate && !status.active) return null;
+  const portalLabel = shutdownDate ? t.cancelSubscription : t.manageBilling;
+
   return (
     <Card>
       <CardHeader>
@@ -352,9 +360,9 @@ export function SubscriptionPlansCard({
           <div className="min-w-0 flex-1 space-y-1">
             <CardTitle className="flex items-center gap-2">
               <Repeat className="h-5 w-5" />
-              <span>{t.title}</span>
+              <span>{shutdownDate ? t.currentPlan : t.title}</span>
             </CardTitle>
-            <CardDescription>{t.description}</CardDescription>
+            {!shutdownDate && <CardDescription>{t.description}</CardDescription>}
           </div>
           <Button
             className="ml-auto shrink-0 cursor-pointer"
@@ -402,7 +410,7 @@ export function SubscriptionPlansCard({
           ) : null}
         </div>
 
-        {!status.stripeReady ? (
+        {shutdownDate ? null : !status.stripeReady ? (
           <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-900 dark:border-yellow-900/40 dark:bg-yellow-950/30 dark:text-yellow-100">
             {t.notConfigured}
           </div>
@@ -449,58 +457,62 @@ export function SubscriptionPlansCard({
           </div>
         )}
 
-        {status.canManageBilling ? (
+        {status.canManageBilling && (!shutdownDate || !status.cancelAtPeriodEnd) ? (
           <Button className="cursor-pointer" variant="outline" onClick={() => void openPortal()} disabled={openingPortal || checkoutPlan !== null}>
             {openingPortal ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
-            {openingPortal ? t.portalOpening : t.manageBilling}
+            {openingPortal ? t.portalOpening : portalLabel}
           </Button>
         ) : null}
 
-        <Separator className="my-6" />
+        {!shutdownDate && (
+          <>
+            <Separator className="my-6" />
 
-        <section aria-labelledby="token-top-up-title" className="space-y-3">
-          <div className="space-y-1">
-            <h3 id="token-top-up-title" className="flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-gray-100">
-              <Coins className="h-5 w-5" />
-              <span>{t.topUpTitle}</span>
-            </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{t.topUpDescription}</p>
-          </div>
-
-          {!topUpsConfigured ? (
-            <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-900 dark:border-yellow-900/40 dark:bg-yellow-950/30 dark:text-yellow-100">
-              {t.topUpNotConfigured}
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-              <div className="min-w-0 flex-1 space-y-1.5">
-                <label htmlFor="token-top-up-package" className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  {t.topUpPackageLabel}
-                </label>
-                <Select value={selectedTopUp} onValueChange={(value) => setSelectedTopUp(value as TokenTopUpPackageKey)}>
-                  <SelectTrigger id="token-top-up-package" className="cursor-pointer rounded-lg">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {topUpPackages.map((tokenPackage) => (
-                      <SelectItem className="cursor-pointer" key={tokenPackage.key} value={tokenPackage.key}>
-                        {t.topUpOption(tokenPackage.tokens, tokenPackage.priceUsd)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <section aria-labelledby="token-top-up-title" className="space-y-3">
+              <div className="space-y-1">
+                <h3 id="token-top-up-title" className="flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-gray-100">
+                  <Coins className="h-5 w-5" />
+                  <span>{t.topUpTitle}</span>
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t.topUpDescription}</p>
               </div>
-              <Button
-                className="cursor-pointer sm:min-w-40"
-                disabled={openingTopUp || !selectedTopUpPackage?.configured}
-                onClick={() => void startTopUpCheckout()}
-              >
-                {openingTopUp ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
-                {openingTopUp ? t.topUpCreating : t.topUpAction}
-              </Button>
-            </div>
-          )}
-        </section>
+
+              {!topUpsConfigured ? (
+                <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-900 dark:border-yellow-900/40 dark:bg-yellow-950/30 dark:text-yellow-100">
+                  {t.topUpNotConfigured}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <label htmlFor="token-top-up-package" className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {t.topUpPackageLabel}
+                    </label>
+                    <Select value={selectedTopUp} onValueChange={(value) => setSelectedTopUp(value as TokenTopUpPackageKey)}>
+                      <SelectTrigger id="token-top-up-package" className="cursor-pointer rounded-lg">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {topUpPackages.map((tokenPackage) => (
+                          <SelectItem className="cursor-pointer" key={tokenPackage.key} value={tokenPackage.key}>
+                            {t.topUpOption(tokenPackage.tokens, tokenPackage.priceUsd)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    className="cursor-pointer sm:min-w-40"
+                    disabled={openingTopUp || !selectedTopUpPackage?.configured}
+                    onClick={() => void startTopUpCheckout()}
+                  >
+                    {openingTopUp ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
+                    {openingTopUp ? t.topUpCreating : t.topUpAction}
+                  </Button>
+                </div>
+              )}
+            </section>
+          </>
+        )}
       </CardContent>
     </Card>
   );

@@ -1,3 +1,4 @@
+import { getShutdownDate } from '@/server/shutdown-mode';
 import { NextRequest } from 'next/server';
 import { prisma } from '@/server/db';
 import { error, notFound, ok } from '@/server/http';
@@ -136,6 +137,7 @@ async function getAccount(auth: UserApiKeyAuthContext) {
     },
   });
   if (!user) return notFound('Account not found');
+  const shutdownDate = getShutdownDate();
   return ok({
     id: user.id,
     email: user.email,
@@ -145,6 +147,7 @@ async function getAccount(auth: UserApiKeyAuthContext) {
     createdAt: user.createdAt.toISOString(),
     tokenBalance: user.tokenBalance,
     isGuest: user.isGuest,
+    ...(shutdownDate ? { shutdownDate } : {}),
   }, noStoreInit());
 }
 

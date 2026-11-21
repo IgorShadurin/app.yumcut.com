@@ -1,9 +1,14 @@
+import { getShutdownDate } from '@/server/shutdown-mode';
 import { ok } from '@/server/http';
 import { SUBSCRIPTION_PLAN_ORDER, getSubscriptionPlanByKey } from '@/shared/constants/subscriptions';
 import type { MobilePaywallConfigDTO } from '@/shared/types';
-import type { NextRequest } from 'next/server';
 
-export function GET(_req?: NextRequest) {
+export function GET() {
+  const shutdownDate = getShutdownDate();
+  if (shutdownDate) {
+    return ok({ plans: [], purchasesEnabled: false, shutdownDate }, { headers: { 'Cache-Control': 'no-store' } });
+  }
+
   const payload: MobilePaywallConfigDTO = {
     plans: SUBSCRIPTION_PLAN_ORDER.map((planKey) => {
       const plan = getSubscriptionPlanByKey(planKey);
