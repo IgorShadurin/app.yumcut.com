@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
 const requireUserApiKey = vi.hoisted(() => vi.fn());
@@ -94,20 +94,24 @@ describe('user v1 API direct routes', () => {
     });
   });
 
-  it('returns auth errors before entering the authenticated override', async () => {
+  it.each([401, 403])('returns authentication and scope denials before loading account data (%i)', async (status) => {
     requireUserApiKey.mockResolvedValue({
       context: null,
-      error: Response.json({ error: { code: 'UNAUTHORIZED', message: 'no key' } }, { status: 401 }),
+      error: Response.json({ error: { message: 'Access denied' } }, { status }),
     });
 
     const res = await call('GET', 'account');
 
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(status);
     expect(runWithAuthenticatedApiUser).not.toHaveBeenCalled();
     expect(userFindUnique).not.toHaveBeenCalled();
   });
 
-  it('gets account data for the authenticated key owner only', async () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it.each([false, true])('returns only the key owner and the applicable shutdown date (closed = %s)', async (closed) => {
+    vi.stubEnv('SHUTDOWN_MODE', String(closed));
+    vi.stubEnv('SHUTDOWN_DATE', '2027-03-01');
     userFindUnique.mockResolvedValue({
       id: 'user-1',
       email: 'user@example.com',
@@ -134,6 +138,8 @@ describe('user v1 API direct routes', () => {
     const body = await res.json();
     expect(body).toMatchObject({ id: 'user-1', email: 'user@example.com', tokenBalance: 240 });
     expect(body).not.toHaveProperty('deleted');
+    if (closed) expect(body.shutdownDate).toBe('2027-03-01');
+    else expect(body).not.toHaveProperty('shutdownDate');
   });
 
   it('lists only projects owned by the authenticated key owner', async () => {

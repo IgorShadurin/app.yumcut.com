@@ -36,6 +36,15 @@ describe('user API OpenAPI spec', () => {
     expect(prompt.description).toContain('1,796 characters when imagePrank is supplied');
   });
 
+  it('documents the optional shutdown date on the read-scoped account response', () => {
+    expect(userApiOpenApiSpec.paths['/account'].get).toMatchObject({
+      'x-yumcut-scope': 'read',
+      responses: { 200: { content: { 'application/json': { schema: { properties: {
+        shutdownDate: { type: 'string', format: 'date', example: '2026-12-31' },
+      } } } } } },
+    });
+  });
+
   it('does not expose billing, account deletion, or admin paths', () => {
     const paths = Object.keys(userApiOpenApiSpec.paths);
     expect(paths.some((path) => path.includes('subscription'))).toBe(false);

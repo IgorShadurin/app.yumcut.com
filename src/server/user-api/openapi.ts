@@ -451,6 +451,10 @@ export const userApiOpenApiSpec = {
               createdAt: { type: 'string', format: 'date-time' },
               tokenBalance: { type: 'integer' },
               isGuest: { type: 'boolean' },
+              shutdownDate: {
+                type: 'string', format: 'date', example: '2026-12-31',
+                description: 'Last day of service, inclusive. Present only while signups and new purchases are closed.',
+              },
             },
           }),
         },

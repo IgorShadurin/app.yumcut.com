@@ -1,4 +1,5 @@
 "use client";
+import { PaywallDialog, useShutdownDate } from '@/components/providers/ShutdownModeProvider';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DurationDropdown } from './DurationDropdown';
 import { LanguageDropdown } from './LanguageDropdown';
@@ -9,7 +10,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip } from '@/components/common/Tooltip';
 import {
@@ -234,6 +235,7 @@ type PromptInputProps = {
 
 export function PromptInput({ projectType = 'story' }: PromptInputProps) {
   const { status: authStatus } = useSession();
+  const shutdownDate = useShutdownDate();
   const { language } = useAppLanguage();
   const copy = PROMPT_INPUT_COPY[language];
   const { settings, update } = useSettings();
@@ -486,7 +488,7 @@ export function PromptInput({ projectType = 'story' }: PromptInputProps) {
   }, [copy.paywallCurrentPlan]);
 
   useEffect(() => {
-    if (!isEnglish || !paywallOpen) return;
+    if (shutdownDate || !isEnglish || !paywallOpen) return;
     let cancelled = false;
     void Api.getSubscriptionStatus()
       .then((status) => {
@@ -498,7 +500,7 @@ export function PromptInput({ projectType = 'story' }: PromptInputProps) {
     return () => {
       cancelled = true;
     };
-  }, [isEnglish, paywallOpen]);
+  }, [isEnglish, paywallOpen, shutdownDate]);
 
   const templateCustomData = templateSelection?.customData ?? null;
 
@@ -605,7 +607,7 @@ export function PromptInput({ projectType = 'story' }: PromptInputProps) {
     if (!hasTokensForCurrent) {
       if (isEnglish) {
         if (tokensLoading) return;
-        await recordProjectCreationAttemptFromClient(buildAttemptPayload('paywall_shown'));
+        if (!shutdownDate) await recordProjectCreationAttemptFromClient(buildAttemptPayload('paywall_shown'));
         setPaywallOpen(true);
         return;
       }
@@ -1010,7 +1012,7 @@ export function PromptInput({ projectType = 'story' }: PromptInputProps) {
           />
         )}
       </div>
-      <Dialog open={paywallOpen} onOpenChange={setPaywallOpen}>
+      <PaywallDialog open={paywallOpen} onOpenChange={setPaywallOpen} cost={projectCost} balance={tokenBalance}>
         <DialogContent className="w-[calc(100vw-1rem)] max-w-2xl p-0" ariaDescription={copy.paywallDescription(projectCost, tokenBalance)}>
           <div className="p-4 sm:p-6">
             <DialogHeader className="mb-2 block space-y-2">
@@ -1107,7 +1109,7 @@ export function PromptInput({ projectType = 'story' }: PromptInputProps) {
             </div>
           </div>
         </DialogContent>
-      </Dialog>
+      </PaywallDialog>
       {/* Templates picker under textarea & settings */}
       {!isImageMode ? <TemplatePicker onChange={handleTemplateChange} /> : null}
 

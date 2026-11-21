@@ -54,3 +54,6 @@ tests/daemon/dummy-scripts/**/node_modules
 
 # local imported character batch
 public/characters/brainrot/
+
+# Private shutdown-mode screenshot gallery
+/docs/screenshots/shutdown-mode/

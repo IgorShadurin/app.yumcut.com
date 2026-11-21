@@ -1,3 +1,4 @@
+import { assertSignupsOpen } from '@/server/shutdown-mode';
 import crypto from 'node:crypto';
 import { prisma } from '@/server/db';
 import { reactivateDeletedUser } from '@/server/account/reactivate-user';
@@ -57,6 +58,7 @@ export async function getOrCreateGuestUser(metadata: GuestMetadata) {
     return updatedUser;
   }
 
+  assertSignupsOpen();
   if (existingProfile?.user && !existingProfile.user.isGuest) {
     await prisma.guestProfile.delete({ where: { id: existingProfile.id } });
   }

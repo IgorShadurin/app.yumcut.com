@@ -1,3 +1,4 @@
+import { isShutdownMode, SignupsClosedError } from '@/server/shutdown-mode';
 import NextAuth, { NextAuthOptions, getServerSession } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import AppleProvider from 'next-auth/providers/apple';
@@ -82,7 +83,12 @@ if (oauthProviders.length === 0) {
 }
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  adapter: {
+    ...PrismaAdapter(prisma),
+    // Enforce the policy at the write boundary even if a matched account
+    // disappears between the sign-in callback and the adapter lookup.
+    ...(isShutdownMode() ? { createUser: async () => { throw new SignupsClosedError(); } } : {}),
+  },
   providers: oauthProviders,
   session: {
     strategy: 'jwt',
@@ -132,10 +138,7 @@ export const authOptions: NextAuthOptions = {
     async signIn({ account, profile }) {
       if (!account?.provider || !enabledProviderIds.has(account.provider)) return false;
 
-      if (!(await allowEmailLinking(account, profile))) {
-        return false;
-      }
-      return true;
+      return allowEmailLinking(account, profile);
     },
     async jwt({ token, user, trigger }) {
       if (token.sub) {
@@ -413,13 +416,15 @@ function buildAppleProvider() {
 
 async function allowEmailLinking(account: { provider?: string; providerAccountId?: string | null; type?: string } | null, profile?: Record<string, any>) {
   if (!account || account.type !== 'oauth') return true;
-  if (!profile?.email || typeof profile.email !== 'string') return true;
-  if (!account.provider || !account.providerAccountId) return true;
-
-  const normalizedEmail = profile.email.toLowerCase();
-  const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail }, select: { id: true, deleted: true } });
-  if (!existingUser) return true;
-  if (existingUser.deleted) {
+  const closed = isShutdownMode();
+  if (!account.provider || !account.providerAccountId) return closed ? '/' : true;
+  const normalizedEmail = typeof profile?.email === 'string' ? profile.email.toLowerCase() : null;
+  if (!normalizedEmail && !closed) return true;
+  const existingUser = normalizedEmail
+    ? await prisma.user.findUnique({ where: { email: normalizedEmail }, select: { id: true, deleted: true } })
+    : null;
+  if (!existingUser && !closed) return true;
+  if (existingUser?.deleted) {
     await reactivateDeletedUser(existingUser.id);
   }
 
@@ -438,6 +443,8 @@ async function allowEmailLinking(account: { provider?: string; providerAccountId
     }
     return true;
   }
+
+  if (!existingUser) return '/';
 
   if (!isVerifiedOAuthEmail(account.provider, profile)) {
     console.warn('Blocked auto-linking for unverified OAuth email', {

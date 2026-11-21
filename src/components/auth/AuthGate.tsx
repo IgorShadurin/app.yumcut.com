@@ -1,4 +1,5 @@
 "use client";
+import { SignupNotice } from '@/components/providers/ShutdownModeProvider';
 import { useEffect, useState, type ReactNode } from 'react';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { Api } from '@/lib/api-client';
@@ -65,7 +66,7 @@ export function AuthGate() {
           <DialogTitle>{copy.title}</DialogTitle>
         </DialogHeader>
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          {copy.subtitle}
+          <SignupNotice>{copy.subtitle}</SignupNotice>
         </p>
         <div className="mt-4 space-y-2">
           <AuthButton

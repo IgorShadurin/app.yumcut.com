@@ -1,3 +1,4 @@
+import { assertSignupsOpen } from '@/server/shutdown-mode';
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/server/db';
@@ -95,6 +96,8 @@ export const POST = withApiError(async function POST(req: NextRequest) {
       }
     }
   }
+
+  if (!targetUserId) assertSignupsOpen();
 
   let finalUserId = guestUser.id;
   let mergedIntoExisting = false;

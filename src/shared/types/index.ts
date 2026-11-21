@@ -545,6 +545,8 @@ export interface SubscriptionStatusDTO {
 }
 
 export interface MobilePaywallConfigDTO {
+  purchasesEnabled?: boolean;
+  shutdownDate?: string;
   plans: Array<{
     planKey: 'weekly' | 'monthly' | 'monthly_pro';
     productId: string;

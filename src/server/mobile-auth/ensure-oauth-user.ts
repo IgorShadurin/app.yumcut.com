@@ -1,3 +1,4 @@
+import { assertSignupsOpen } from '@/server/shutdown-mode';
 import { Prisma, User } from '@prisma/client';
 import { prisma } from '@/server/db';
 import { notifyAdminsOfNewUser } from '@/server/telegram';
@@ -58,6 +59,7 @@ export async function ensureOAuthUser(options: EnsureOAuthUserOptions): Promise<
   let user: User;
   let isNewUser = false;
   if (!existingUser) {
+    assertSignupsOpen();
     isNewUser = true;
     user = await prisma.user.create({
       data: {

@@ -1,3 +1,4 @@
+import { isShutdownMode, PurchasesClosedError } from '@/server/shutdown-mode';
 import type Stripe from 'stripe';
 import { prisma } from '@/server/db';
 import { config } from '@/server/config';
@@ -15,6 +16,7 @@ import {
 } from '@/shared/constants/subscriptions';
 import {
   getUserSubscriptionStatus,
+  isStripeSubscriptionEnvironment,
   processServerSubscriptionPurchase,
   type PurchaseSource,
 } from '@/server/subscriptions';
@@ -106,11 +108,31 @@ async function createBillingPortalSessionForCustomer(input: {
   userId: string;
   customerId: string;
   reason: string;
+  subscriptionToCancel?: string;
 }) {
   const stripe = getStripeClient();
+  const returnUrl = buildStripePortalReturnUrl();
+  let flow: Stripe.BillingPortal.SessionCreateParams['flow_data'];
+  if (isShutdownMode()) {
+    let subscriptionId = input.subscriptionToCancel;
+    if (!subscriptionId) {
+      const subscription = await findStripeSubscriptionForUser(input.userId);
+      if (!subscription || !isStripeSubscriptionActiveLike(subscription.status) ||
+          extractCustomerId(subscription.customer) !== input.customerId) {
+        throw new PurchasesClosedError();
+      }
+      subscriptionId = subscription.id;
+    }
+    flow = {
+      type: 'subscription_cancel',
+      subscription_cancel: { subscription: subscriptionId },
+      after_completion: { type: 'redirect', redirect: { return_url: returnUrl } },
+    };
+  }
   const portal = await stripe.billingPortal.sessions.create({
     customer: input.customerId,
-    return_url: buildStripePortalReturnUrl(),
+    return_url: returnUrl,
+    ...(flow && { flow_data: flow }),
   });
 
   logStripeSubscriptionEvent('portal_created', {
@@ -854,6 +876,7 @@ export async function cancelStripeSubscriptionForAccountDeletion(
         userId,
         customerId,
         reason: 'account_deletion_cancel_failed',
+        subscriptionToCancel: subscription.id,
       });
       portalUrl = portal.url;
     } catch (error) {
@@ -1004,6 +1027,7 @@ export async function createStripeBillingPortalSession(userId: string) {
     (await findCustomerIdFromLatestStripeSubscription(userId));
 
   if (!customerId) {
+    if (isShutdownMode()) throw new PurchasesClosedError();
     throw new Error('No Stripe customer found for this account.');
   }
 
@@ -1041,7 +1065,8 @@ export async function getWebSubscriptionStatus(userId: string): Promise<Subscrip
         hasConfigValue(config.STRIPE_WEBHOOK_SECRET) &&
         hasConfigValue(config.NEXTAUTH_URL),
     ) && plans.every((plan) => plan.configured);
-  const canManageBilling = stripeReady
+  const closed = isShutdownMode();
+  const canManageBilling = stripeReady && (!closed || (baseStatus.active && isStripeSubscriptionEnvironment(baseStatus.environment)))
     ? Boolean(
         (await findCustomerIdFromPurchaseHistory(userId)) ??
           (await findCustomerIdFromLatestStripeSubscription(userId)),
@@ -1058,8 +1083,8 @@ export async function getWebSubscriptionStatus(userId: string): Promise<Subscrip
     ...baseStatus,
     cancelAtPeriodEnd: cancellationStatus.cancelAtPeriodEnd,
     cancellationEffectiveAt,
-    plans,
-    stripeReady,
+    plans: closed ? plans.filter((plan) => baseStatus.active && plan.productId === baseStatus.productId) : plans,
+    stripeReady: stripeReady && !closed,
     canManageBilling,
   };
 }

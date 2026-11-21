@@ -1,3 +1,4 @@
+import { assertPurchasesOpen } from '@/server/shutdown-mode';
 import { NextRequest } from 'next/server';
 import { withApiError } from '@/server/errors';
 import { error, ok, unauthorized } from '@/server/http';
@@ -16,6 +17,7 @@ export const POST = withApiError(async function POST(req: NextRequest) {
   const user = session?.user as { id?: string; email?: string | null } | undefined;
   const userId = user?.id;
   if (!userId) return unauthorized();
+  assertPurchasesOpen();
 
   if (!isStripePricingConfigured()) {
     return error('CONFIG_ERROR', 'Stripe subscriptions are not configured.', 500);
