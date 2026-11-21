@@ -35,16 +35,34 @@ export function SignupNotice({ children }: { children: React.ReactNode }) {
   const shutdownDate = useShutdownDate();
   const { language } = useAppLanguage();
   if (!shutdownDate) return children;
-  return language === 'ru'
-    ? 'Регистрация в YumCut закрыта. Если у вас уже есть аккаунт, войдите через Google или Apple.'
-    : 'YumCut is no longer accepting new signups. If you already have an account, sign in with Google or Apple.';
+  return (
+    <>
+      <strong className="font-bold">
+        {language === 'ru' ? 'Регистрация в YumCut закрыта.' : 'YumCut is no longer accepting new signups.'}
+      </strong>{' '}
+      {language === 'ru'
+        ? 'Если у вас уже есть аккаунт, войдите через Google или Apple.'
+        : 'If you already have an account, sign in with Google or Apple.'}
+    </>
+  );
 }
 
 export function BalanceNotice({ cost, balance }: { cost: number; balance: number }) {
   const { language } = useAppLanguage();
-  return language === 'ru'
-    ? `Стоимость проекта — ${cost} токенов. Ваш баланс — ${balance}. Покупка токенов закрыта.`
-    : `This project needs ${cost} tokens. Your balance is ${balance}. Token purchases are closed.`;
+  if (language === 'ru') {
+    return (
+      <>
+        <strong className="font-bold">Покупка токенов закрыта.</strong>{' '}
+        Стоимость проекта — {cost} токенов. Ваш баланс — {balance}.
+      </>
+    );
+  }
+  return (
+    <>
+      This project needs {cost} tokens. Your balance is {balance}.{' '}
+      <strong className="font-bold">Token purchases are closed.</strong>
+    </>
+  );
 }
 
 export function PaywallDialog({ cost, balance, open, onOpenChange, children }: {
